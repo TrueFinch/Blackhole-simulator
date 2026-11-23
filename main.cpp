@@ -5,6 +5,7 @@
 #include <cmath>
 #include <iostream>
 #include <memory>
+#include <vector>
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -20,6 +21,11 @@ namespace {
 	// todo: make parameter customizable in runtime
 	constexpr double BH_MASS = 8.54e36; // Blackhole mass in kg
 	constexpr double rs = 2.0 * G * BH_MASS / (c * c); // Event horizon radius
+
+	// Forward declarations (needed for Ray::integrate method)
+	struct Ray;
+
+	void rk4Step(Ray& ray, double dlambda);
 
 	// automatically calls glfwTerminate in destructor
 	struct GLFWTerminateCaller {
@@ -58,6 +64,8 @@ namespace {
 			std::cout << "  Position: r = " << (r / rs) << " rs\n";
 			std::cout << "  Energy: E = " << E << "\n";
 			std::cout << "  Angular momentum: L = " << L << "\n\n";
+
+			trail.emplace_back(static_cast<float>(x), static_cast<float>(y));
 		}
 
 		void displayConservedQuantities() const {
@@ -70,6 +78,28 @@ namespace {
 			std::cout << "  Impact parameter b = " << impactParameter / rs << " rs\n";
 		}
 
+		[[nodiscard]] bool isCaptured() const {
+			return r <= rs * 1.01;
+		}
+
+		[[nodiscard]] bool hasEscaped(double maxDistance) const {
+			return r > maxDistance;
+		}
+
+		void recordPosition() {
+			const float x{static_cast<float>(r * std::cos(phi))};
+			const float y{static_cast<float>(r * std::sin(phi))};
+			trail.emplace_back(x, y);
+		}
+
+		void integrate(double dlambda, double maxDistance) {
+			if (isCaptured() || hasEscaped(maxDistance)) {
+				return;
+			}
+			rk4Step(*this, dlambda);
+			recordPosition();
+		}
+
 		// polar coordinates
 		double r; // Radial distance from black hole
 		double phi; // Angular position (radians)
@@ -79,8 +109,9 @@ namespace {
 
 		double L; // Conserved angular momentum
 		double E; // Conserved energy parameter
-	};
 
+		std::vector<glm::vec2> trail;
+	};
 
 	// This computes the right-hand side of the geodesic differential equations
 	// Parameters:
@@ -268,6 +299,44 @@ void drawCircleOutline(float center_x, float center_y, float radius, int segment
 	glEnd();
 }
 
+void drawRays(const std::vector<Ray>& rays) {
+	// Enable transparency for fading effect
+	glEnable(GL_BLEND);
+	// Configure how transparent colors blend with background
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glLineWidth(1.5f);
+
+	// Draw trails with fading effect
+	for (const auto& ray: rays) {
+		const auto n = ray.trail.size();
+		if (n < 2) {
+			continue;
+		}
+		glBegin(GL_LINE_STRIP);
+		for (auto i = 0; i < n; ++i) {
+			const auto alpha = 0.2f + 0.8f * static_cast<float>(i) / static_cast<float>(n - 1);
+			glColor4f(1.f, 1.f, 1.f, alpha);
+			glVertex2f(ray.trail[i].x, ray.trail[i].y);
+		}
+		glEnd();
+	}
+
+	// Draw current ray positions as bright points
+	glPointSize(3.f);
+	glColor3f(1.f, 1.f, 0.f);
+
+	glBegin(GL_POINTS);
+	for (const auto& ray: rays) {
+		if (!ray.trail.empty() && !ray.isCaptured()) {
+			glVertex2f(ray.trail.back().x, ray.trail.back().y);
+		}
+	}
+	glEnd();
+
+	// Disable transparency for fading effect
+	glDisable(GL_BLEND);
+}
+
 int main() {
 	glfwSetErrorCallback([](const int error_code, const char* error_message) {
 		std::cerr << "GLFW error: " << error_code << ": " << error_message << std::endl;
@@ -356,6 +425,40 @@ int main() {
 	const int num_steps = 10;
 	debugRK4Integration(testRay, num_steps, dlambda);
 
+	//Physical viewport: ±100 billion meters horizontally,
+	//±75 billion meters vertically.
+	//This shows a region much larger than the Schwarzschild radius (~26 million meters).
+	constexpr double viewWidth = 1e11;
+	constexpr double viewHeight = 7.5e10;
+	// Derive maxDistance from viewport width
+	constexpr double maxDistance = 2.0 * viewWidth;
+
+	{
+		// todo glMatrixMode, glOrtho, glBegin/glVertex/glColor is legacy API -> replace later
+		// Switch to projection mode
+		glMatrixMode(GL_PROJECTION);
+		// Reset matrix
+		glLoadIdentity();
+		// Update the viewport to use physical coordinates
+		glOrtho(-viewWidth, viewWidth, -viewHeight, viewHeight, -1.0, 1.0);
+
+		// Switch back to modelview matrix
+		glMatrixMode(GL_MODELVIEW);
+		// Reset matrix
+		glLoadIdentity();
+	}
+
+	std::vector<Ray> rays;
+	constexpr int numRays = 10;
+	constexpr double startX = -viewWidth;
+	constexpr double vx = c;
+	constexpr double vy = 0.0;
+
+	for (auto i = 0; i < numRays; ++i) {
+		const double startY = (2.5 + i * 0.1) * rs;
+		rays.emplace_back(startX, startY, vx, vy);
+	}
+
 	// render loop
 	while (!glfwWindowShouldClose(window.get())) {
 		// 1. clear screen with the background color (RGBA, each component in 0..1)
@@ -364,12 +467,19 @@ int main() {
 
 		// 2.1 Draw event horizon (filled black circle)
 		glColor3f(0.0f, 0.0f, 0.0f);
-		drawCircle(0.0f, 0.0f, 1.0f, 100);
+		constexpr float eventRadius = rs;
+		drawCircle(0.0f, 0.0f, eventRadius, 100);
 
 		// 2.2 Draw photon sphere (cyan outline on top)
 		glColor3f(0.0f, 0.8f, 0.8f);
 		glLineWidth(2.0f);
-		drawCircleOutline(0.0f, 0.0f, 1.5f, 100);
+		constexpr float photonRadius = 1.5 * rs;
+		drawCircleOutline(0.0f, 0.0f, photonRadius, 100);
+
+		for (auto& ray : rays) {
+			ray.integrate(1.0, maxDistance);
+		}
+		drawRays(rays);
 
 		// 3. swap buffers (double buffering)
 		glfwSwapBuffers(window.get());
