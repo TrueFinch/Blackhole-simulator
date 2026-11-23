@@ -46,6 +46,19 @@ void drawCircle(float center_x, float center_y, float radius, int segments) {
 	glEnd();
 }
 
+void drawCircleOutline(float center_x, float center_y, float radius, int segments) {
+	glBegin(GL_LINE_LOOP);
+
+	for (auto i = 0; i < segments; ++i) {
+		const auto angle = (static_cast<float>(i) * 2.0f * static_cast<float>(M_PI)) / static_cast<float>(segments);
+		const auto ox = center_x + radius * std::cos(angle);
+		const auto oy = center_y + radius * std::sin(angle);
+		glVertex2f(ox, oy);
+	}
+
+	glEnd();
+}
+
 int main() {
 	glfwSetErrorCallback([](const int error_code, const char* error_message) {
 		std::cerr << "GLFW error: " << error_code << ": " << error_message << std::endl;
@@ -115,16 +128,17 @@ int main() {
 	// render loop
 	while (!glfwWindowShouldClose(window.get())) {
 		// 1. clear screen with the background color (RGBA, each component in 0..1)
-		glClearColor(0.f, 0.f, 0.f, 1.0f);
+		glClearColor(0.1f, 0.1f, 0.15f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
 
+		// 2.1 Draw event horizon (filled black circle)
+		glColor3f(0.0f, 0.0f, 0.0f);
+		drawCircle(0.0f, 0.0f, 1.0f, 100);
 
-		// Large blue circle at origin
-		glColor3f(0.2f, 0.4f, 0.8f);
-		drawCircle(0.0f, 0.0f, 3.0f, 100);
-		// Small orange circle to the right
-		glColor3f(1.0f, 0.5f, 0.0f);
-		drawCircle(5.0f, 0.0f, 1.5f, 100);
+		// 2.2 Draw photon sphere (cyan outline on top)
+		glColor3f(0.0f, 0.8f, 0.8f);
+		glLineWidth(2.0f);
+		drawCircleOutline(0.0f, 0.0f, 1.5f, 100);
 
 		// 3. swap buffers (double buffering)
 		glfwSwapBuffers(window.get());
