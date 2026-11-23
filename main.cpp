@@ -72,6 +72,9 @@ namespace {
 			E = f * dt_dlambda;
 
 			trail.emplace_back(static_cast<float>(x), static_cast<float>(y));
+
+			// Store initial velocity direction (NOT position angle!)
+			prevVelocityAngle = initialVelocityAngle = std::atan2(vy, vx);
 		}
 
 		[[nodiscard]] bool isCaptured() const {
@@ -94,6 +97,29 @@ namespace {
 			}
 			rk4Step(*this, dlambda);
 			recordPosition();
+			updateDeflection();
+		}
+
+		void updateDeflection() {
+			// Convert current polar velocity back to Cartesian
+			const double vx_current = v_r * std::cos(phi) - r * v_phi * std::sin(phi);
+			const double vy_current = v_r * std::sin(phi) + r * v_phi * std::cos(phi);
+
+			// Calculate current velocity direction
+			const double currentVelocityAngle = std::atan2(vy_current, vx_current);
+			// Change since the previous step, wrapped into (-π, π]
+			double delta = currentVelocityAngle - prevVelocityAngle;
+			if (delta > M_PI) {
+				delta -= 2.0 * M_PI;
+			}
+			if (delta < -M_PI) {
+				delta += 2.0 * M_PI;
+			}
+
+			// Measure how much direction has changed
+			totalTurn += delta; // signed, accumulates full loops
+			prevVelocityAngle = currentVelocityAngle;
+			deflection = std::abs(totalTurn);
 		}
 
 		// polar coordinates
@@ -105,6 +131,11 @@ namespace {
 
 		double L; // Conserved angular momentum
 		double E; // Conserved energy parameter
+
+		double initialVelocityAngle; // Direction ray was heading at start
+		double prevVelocityAngle;
+		double totalTurn = 0.0;
+		double deflection = 0.0; // How much direction has changed
 
 		std::vector<glm::vec2> trail;
 	};
@@ -248,7 +279,9 @@ void drawDashedCircle(float x, float y, float radius, int segments) {
 	// Draw every other segment to create dashes
 	for (auto i = 0; i < segments; i += 2) {
 		const float theta1{(static_cast<float>(i) * 2.0f * static_cast<float>(M_PI)) / static_cast<float>(segments)};
-		const float theta2{(static_cast<float>(i + 1) * 2.0f * static_cast<float>(M_PI)) / static_cast<float>(segments)};
+		const float theta2{
+			(static_cast<float>(i + 1) * 2.0f * static_cast<float>(M_PI)) / static_cast<float>(segments)
+		};
 
 		glBegin(GL_LINES);
 		glVertex2f(x + radius * std::cos(theta1), y + radius * std::sin(theta1));
@@ -270,10 +303,19 @@ void drawRays(const std::vector<Ray>& rays) {
 		if (n < 2) {
 			continue;
 		}
+		// Normalize deflection (0 to π radians) to 0–1 scale
+		constexpr float maxDeflection = M_PI;
+		const float t = std::min(1.0f, static_cast<float>(ray.deflection) / maxDeflection);
+
+		// Cyan → Purple → Red gradient
+		const float r = t; // 0 → 1 (increases with deflection)
+		const float g = 0.5f * (1.0f - t); // 0.5 → 0 (decreases from mid-value)
+		const float b = 1.0f - t; // 1 → 0 (decreases with deflection)
+
 		glBegin(GL_LINE_STRIP);
 		for (auto i = 0; i < n; ++i) {
 			const auto alpha = 0.2f + 0.8f * static_cast<float>(i) / static_cast<float>(n - 1);
-			glColor4f(1.f, 1.f, 1.f, alpha);
+			glColor4f(r, g, b, alpha);
 			glVertex2f(ray.trail[i].x, ray.trail[i].y);
 		}
 		glEnd();
@@ -443,7 +485,7 @@ int main() {
 		constexpr float photonRadius = 1.5 * rs;
 		drawDashedCircle(0.0f, 0.0f, photonRadius, 100);
 
-		for (auto& ray : rays) {
+		for (auto& ray: rays) {
 			ray.integrate(1.0, maxDistance);
 		}
 		drawRays(rays);
