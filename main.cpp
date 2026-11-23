@@ -18,26 +18,21 @@
 
 namespace {
 	// physical constants
-	constexpr double c = 299792458.0; // Speed of light (m/s)
-	constexpr double G = 6.67430e-11; // Gravitational constant (m³/kg·s²)
-	// todo: make parameter customizable in runtime
-	constexpr double BH_MASS = 8.54e36; // Blackhole mass in kg
-	constexpr double rs = 2.0 * G * BH_MASS / (c * c); // Event horizon radius
 
-	//Physical viewport: ±100 billion meters horizontally,
-	//±75 billion meters vertically.
-	//This shows a region much larger than the Schwarzschild radius (~26 million meters).
-	constexpr double viewWidth = 1e11;
-	constexpr double viewHeight = 7.5e10;
+	// Lengths are measured in units of rs
+	constexpr float kRs = 1.0f;
+
+	constexpr float viewWidth = 8.f;
+	constexpr float viewHeight = 6.f;
 	// Derive maxDistance from viewport width
-	constexpr double maxDistance = 2.0 * viewWidth;
+	constexpr float kMaxDistance = 2.0 * viewWidth;
 
 	constexpr int kNumStars = 200;
 
 	// Forward declarations (needed for Ray::integrate method)
 	struct Ray;
 
-	void rk4Step(Ray& ray, double dlambda);
+	void rk4Step(Ray& ray, float dlambda);
 
 	// automatically calls glfwTerminate in destructor
 	struct GLFWTerminateCaller {
@@ -57,42 +52,52 @@ namespace {
 	};
 
 	struct Ray {
-		Ray(double x, double y, double vx, double vy) {
+		Ray(float x, float y, float vx, float vy) {
+			// Convert Cartesian position to polar coordinates
 			r = std::sqrt(x * x + y * y);
 			phi = std::atan2(y, x);
 
+			// Convert Cartesian velocity to polar coordinates
+			// Using transformation:
+			// v_r = vx*cos(φ) + vy*sin(φ)
+			// v_φ = (-vx*sin(φ) + vy*cos(φ)) / r
 			const auto cos_phi = std::cos(phi);
 			const auto sin_phi = std::sin(phi);
 			v_r = vx * cos_phi + vy * sin_phi;
 			v_phi = (-vx * sin_phi + vy * cos_phi) / r;
 
+			// Angular momentum L = r² * v_φ
 			L = r * r * v_phi;
 
-			const auto f = 1.0 - rs / r;
+			// Metric coefficient (f = 1 - rs/r)
+			const auto f = 1.f - kRs / r;
+			// For null geodesics (light rays), the normalization condition gives:
+			// dt/dλ = √[(v_r)²/f² + (r²·v_φ)²/f]
 			const auto dt_dlambda = std::sqrt((v_r * v_r) / (f * f) + (r * r * v_phi * v_phi) / f);
+			// Energy E = f * dt/dλ
 			E = f * dt_dlambda;
 
-			trail.emplace_back(static_cast<float>(x), static_cast<float>(y));
+			trail.emplace_back(x, y);
 
 			// Store initial velocity direction (NOT position angle!)
 			prevVelocityAngle = initialVelocityAngle = std::atan2(vy, vx);
 		}
 
 		[[nodiscard]] bool isCaptured() const {
-			return r <= rs * 1.01;
+			return r <= kRs * 1.01f;
 		}
 
-		[[nodiscard]] bool hasEscaped(double maxDistance) const {
+		[[nodiscard]] bool hasEscaped(float maxDistance) const {
 			return r > maxDistance;
 		}
 
 		void recordPosition() {
-			const float x{static_cast<float>(r * std::cos(phi))};
-			const float y{static_cast<float>(r * std::sin(phi))};
+			const auto x = r * std::cos(phi);
+			const auto y = r * std::sin(phi);
 			trail.emplace_back(x, y);
 		}
 
-		void integrate(double dlambda, double maxDistance) {
+		void integrate(float dlambda, float maxDistance) {
 			if (isCaptured() || hasEscaped(maxDistance)) {
 				return;
 			}
@@ -103,18 +108,18 @@ namespace {
 
 		void updateDeflection() {
 			// Convert current polar velocity back to Cartesian
-			const double vx_current = v_r * std::cos(phi) - r * v_phi * std::sin(phi);
-			const double vy_current = v_r * std::sin(phi) + r * v_phi * std::cos(phi);
+			const auto vx_current = v_r * std::cos(phi) - r * v_phi * std::sin(phi);
+			const auto vy_current = v_r * std::sin(phi) + r * v_phi * std::cos(phi);
 
 			// Calculate current velocity direction
-			const double currentVelocityAngle = std::atan2(vy_current, vx_current);
+			const auto currentVelocityAngle = std::atan2(vy_current, vx_current);
 			// Change since the previous step, wrapped into (-π, π]
-			double delta = currentVelocityAngle - prevVelocityAngle;
+			auto delta = currentVelocityAngle - prevVelocityAngle;
 			if (delta > M_PI) {
-				delta -= 2.0 * M_PI;
+				delta -= 2.f * M_PI;
 			}
 			if (delta < -M_PI) {
-				delta += 2.0 * M_PI;
+				delta += 2.f * M_PI;
 			}
 
 			// Measure how much direction has changed
@@ -124,19 +129,19 @@ namespace {
 		}
 
 		// polar coordinates
-		double r; // Radial distance from black hole
-		double phi; // Angular position (radians)
+		float r; // Radial distance from black hole
+		float phi; // Angular position (radians)
 		// velocity in polar coordinates
-		double v_r; // Radial velocity (dr/dλ)
-		double v_phi; // Angular velocity (dφ/dλ)
+		float v_r; // Radial velocity (dr/dλ)
+		float v_phi; // Angular velocity (dφ/dλ)
 
-		double L; // Conserved angular momentum
-		double E; // Conserved energy parameter
+		float L; // Conserved angular momentum
+		float E; // Conserved energy parameter
 
-		double initialVelocityAngle; // Direction ray was heading at start
-		double prevVelocityAngle;
-		double totalTurn = 0.0;
-		double deflection = 0.0; // How much direction has changed
+		float initialVelocityAngle; // Direction ray was heading at start
+		float prevVelocityAngle;
+		float totalTurn = 0.f;
+		float deflection = 0.f; // How much direction has changed
 
 		std::vector<glm::vec2> trail;
 	};
@@ -145,15 +150,15 @@ namespace {
 	// Parameters:
 	//   ray - the current state
 	//   rhs - output array for [dr/dλ, dφ/dλ, dv_r/dλ, dv_phi/dλ]
-	void geodesicRHS(const Ray& ray, double rhs[4]) {
+	void geodesicRHS(const Ray& ray, float rhs[4]) {
 		// Extract variables from ray
-		double r = ray.r;
-		double v_r = ray.v_r;
-		double v_phi = ray.v_phi;
-		double E = ray.E;
+		auto r = ray.r;
+		auto v_r = ray.v_r;
+		auto v_phi = ray.v_phi;
+		auto E = ray.E;
 
-		double f_rhs{1.0 - rs / r};
-		double dt_dlambda{E / f_rhs};
+		auto f_rhs{1.f - kRs / r};
+		auto dt_dlambda{E / f_rhs};
 
 		// rhs[0] = dr/dλ (position derivative = velocity)
 		rhs[0] = v_r;
@@ -167,19 +172,19 @@ namespace {
 		// * Negative sign means acceleration toward the black hole
 		// * Depends on how fast time is passing (dt/dλ)
 		// * Strongest contribution near the black hole
-		const auto t1 = -(rs / (2.0 * r * r)) * f_rhs * (dt_dlambda * dt_dlambda);
+		const auto t1 = -(kRs / (2.f * r * r)) * f_rhs * (dt_dlambda * dt_dlambda);
 		// Radial Velocity Correction (Positive)
 		// * Relativistic correction for radial motion
 		// * Always positive (outward effect)
 		// * Important when moving quickly in the radial direction
 		// * The 1/f_rhs factor makes it large near the horizon
-		const auto t2 = (rs / (2.0 * r * r * f_rhs)) * (v_r * v_r);
+		const auto t2 = (kRs / (2.f * r * r * f_rhs)) * (v_r * v_r);
 		// Centrifugal Effect (Positive)
 		// * Like centrifugal force: angular motion creates outward acceleration
 		// * Proportional to (angular velocity)²
 		// * The (r - rs) factor is the effective centrifugal radius
 		// * Can cause light to orbit the black hole
-		const auto t3 = (r - rs) * (v_phi * v_phi);
+		const auto t3 = (r - kRs) * (v_phi * v_phi);
 		// rhs[2] = dv_r/dλ (radial acceleration from geodesic equation)
 		// Exact Schwarzschild null geodesic equation:
 		// dv_r/dλ = -(rs/(2r²))f(dt/dλ)² + (rs/(2r²f))(v_r)² + (r - rs)(v_φ)²
@@ -187,7 +192,7 @@ namespace {
 
 		// rhs[3] = dv_phi/dλ (angular acceleration from geodesic equation)
 		// dv_φ/dλ = -2v_r·v_φ/r
-		rhs[3] = -2.0 * v_r * v_phi / r;
+		rhs[3] = -2.f * v_r * v_phi / r;
 	}
 
 	// This adds two state vectors: out = a + b * factor
@@ -196,7 +201,7 @@ namespace {
 	//   b[4] - second state vector
 	//   factor - scaling factor for b
 	//   out[4] - result
-	void addState(const double a[4], const double b[4], double factor, double out[4]) {
+	void addState(const float a[4], const float b[4], float factor, float out[4]) {
 		for (int i = 0; i < 4; ++i) {
 			out[i] = a[i] + b[i] * factor;
 		}
@@ -206,16 +211,16 @@ namespace {
 	// Parameters:
 	//   ray - the ray to update (modified in place)
 	//   dlambda - step size along affine parameter
-	void rk4Step(Ray& ray, double dlambda) {
+	void rk4Step(Ray& ray, float dlambda) {
 		// Current state
-		double y0[4]{ray.r, ray.phi, ray.v_r, ray.v_phi};
-		double k1[4], k2[4], k3[4], k4[4], temp[4];
+		float y0[4]{ray.r, ray.phi, ray.v_r, ray.v_phi};
+		float k1[4], k2[4], k3[4], k4[4], temp[4];
 
 		// k1: Slope at current point
 		geodesicRHS(ray, k1);
 
 		// k2: Slope at midpoint using k1
-		addState(y0, k1, dlambda / 2.0, temp);
+		addState(y0, k1, dlambda / 2.f, temp);
 		Ray r2 = ray;
 		r2.r = temp[0];
 		r2.phi = temp[1];
@@ -224,7 +229,7 @@ namespace {
 		geodesicRHS(r2, k2);
 
 		// k3: Slope at midpoint using k2 (better estimate)
-		addState(y0, k2, dlambda / 2.0, temp);
+		addState(y0, k2, dlambda / 2.f, temp);
 		Ray r3 = ray;
 		r3.r = temp[0];
 		r3.phi = temp[1];
@@ -242,10 +247,10 @@ namespace {
 		geodesicRHS(r4, k4);
 
 		// Final weighted average: (k1 + 2*k2 + 2*k3 + k4) / 6
-		ray.r += (dlambda / 6.0) * (k1[0] + 2.0 * k2[0] + 2.0 * k3[0] + k4[0]);
-		ray.phi += (dlambda / 6.0) * (k1[1] + 2.0 * k2[1] + 2.0 * k3[1] + k4[1]);
-		ray.v_r += (dlambda / 6.0) * (k1[2] + 2.0 * k2[2] + 2.0 * k3[2] + k4[2]);
-		ray.v_phi += (dlambda / 6.0) * (k1[3] + 2.0 * k2[3] + 2.0 * k3[3] + k4[3]);
+		ray.r += (dlambda / 6.f) * (k1[0] + 2.f * k2[0] + 2.f * k3[0] + k4[0]);
+		ray.phi += (dlambda / 6.f) * (k1[1] + 2.f * k2[1] + 2.f * k3[1] + k4[1]);
+		ray.v_r += (dlambda / 6.f) * (k1[2] + 2.f * k2[2] + 2.f * k3[2] + k4[2]);
+		ray.v_phi += (dlambda / 6.f) * (k1[3] + 2.f * k2[3] + 2.f * k3[3] + k4[3]);
 	}
 }
 
@@ -363,11 +368,11 @@ std::vector<Star> generateStars(int count) {
 
 	std::vector<Star> stars;
 	for (auto i = 0; i < count; ++i) {
-		stars.emplace_back(
+		stars.emplace_back(Star{
 			glm::vec2(distX(gen), distY(gen)),
 			baseBrightness(gen), amplitude(gen),
 			frequencyHz(gen), phase1(gen), phase2(gen)
-		);
+		});
 	}
 	return stars;
 }
@@ -454,30 +459,9 @@ int main() {
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	// Set up projection matrix with glOrtho()
-	{
-		// todo glMatrixMode, glOrtho, glBegin/glVertex/glColor is legacy API -> replace later
-		// Switch to projection mode
-		glMatrixMode(GL_PROJECTION);
-		// Reset matrix
-		glLoadIdentity();
-		// Set orthographic projection from -10 to 10 in X and Y
-		const double aspect = double(fbWidth) / fbHeight;
-		glOrtho(-10.0 * aspect, 10.0 * aspect, -10.0, 10.0, -1.0, 1.0);
-
-		// Switch back to modelview matrix
-		glMatrixMode(GL_MODELVIEW);
-		// Reset matrix
-		glLoadIdentity();
-	}
-
 	// Display black hole information
 	std::cout << "\n=== Black Hole Properties ===\n";
-	std::cout << "Mass: " << BH_MASS << " kg (Sagittarius A*)\n";
-	std::cout << "Schwarzschild radius: " << rs << " m\n";
-	std::cout << "  = " << rs / 1000.0 << " km\n";
-	std::cout << "  = " << rs / 1e9 << " million km\n";
-	std::cout << "Photon sphere: " << 1.5 * rs / 1e9 << " million km\n\n";
+	std::cout << "Schwarzschild radius: " << kRs << " (geometric units)\n";
 
 	{
 		// todo glMatrixMode, glOrtho, glBegin/glVertex/glColor is legacy API -> replace later
@@ -498,12 +482,12 @@ int main() {
 
 	std::vector<Ray> rays;
 	constexpr int numRays = 30;
-	constexpr double startX = -viewWidth;
-	constexpr double vx = c;
-	constexpr double vy = 0.0;
+	constexpr float startX = -viewWidth;
+	constexpr float vx = 1.f;
+	constexpr float vy = 0.f;
 
 	for (auto i = 0; i < numRays; ++i) {
-		const double startY = - viewHeight + i * viewHeight * 2.f / numRays;
+		const float startY = -viewHeight + static_cast<float>(i) * viewHeight * 2.f / numRays;
 		rays.emplace_back(startX, startY, vx, vy);
 	}
 
@@ -518,17 +502,17 @@ int main() {
 
 		// 2.1 Draw event horizon (filled black circle)
 		glColor3f(0.0f, 0.0f, 0.0f);
-		constexpr float eventRadius = rs;
+		constexpr float eventRadius = kRs;
 		drawCircle(0.0f, 0.0f, eventRadius, 100);
 
 		// 2.2 Draw photon sphere (cyan outline on top)
 		glColor3f(0.0f, 0.8f, 0.8f);
 		glLineWidth(2.0f);
-		constexpr float photonRadius = 1.5 * rs;
+		constexpr float photonRadius = 1.5 * kRs;
 		drawDashedCircle(0.0f, 0.0f, photonRadius, 100);
 
 		for (auto& ray: rays) {
-			ray.integrate(1.0, maxDistance);
+			ray.integrate(0.05f, kMaxDistance);
 		}
 		drawRays(rays);
 
