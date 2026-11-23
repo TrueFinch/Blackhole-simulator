@@ -5,6 +5,7 @@
 #include <cmath>
 #include <iostream>
 #include <memory>
+#include <random>
 #include <vector>
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
@@ -29,6 +30,8 @@ namespace {
 	constexpr double viewHeight = 7.5e10;
 	// Derive maxDistance from viewport width
 	constexpr double maxDistance = 2.0 * viewWidth;
+
+	constexpr int kNumStars = 200;
 
 	// Forward declarations (needed for Ray::integrate method)
 	struct Ray;
@@ -279,6 +282,32 @@ void drawRays(const std::vector<Ray>& rays) {
 	glDisable(GL_BLEND);
 }
 
+std::vector<glm::vec2> generateStars(int count) {
+	std::vector<glm::vec2> stars;
+	std::random_device rd;
+	std::mt19937 gen(rd());
+
+	// Match your viewport dimensions: ±100 billion meters X, ±75 billion meters Y
+	std::uniform_real_distribution<float> distX(-viewWidth, viewWidth);
+	std::uniform_real_distribution<float> distY(-viewHeight, viewHeight);
+
+	for (int i{0}; i < count; ++i) {
+		stars.emplace_back(distX(gen), distY(gen));
+	}
+	return stars;
+}
+
+//todo: add different colors and sizes of stars
+void drawStars(const std::vector<glm::vec2>& stars) {
+	glPointSize(2.f);
+	glColor3f(1.f, 1.f, 1.f);
+	glBegin(GL_POINTS);
+	for (const auto& star: stars) {
+		glVertex2f(star.x, star.y);
+	}
+	glEnd();
+}
+
 int main() {
 	glfwSetErrorCallback([](const int error_code, const char* error_message) {
 		std::cerr << "GLFW error: " << error_code << ": " << error_message << std::endl;
@@ -368,6 +397,8 @@ int main() {
 		glLoadIdentity();
 	}
 
+	const auto stars = generateStars(kNumStars);
+
 	std::vector<Ray> rays;
 	constexpr int numRays = 10;
 	constexpr double startX = -viewWidth;
@@ -384,6 +415,9 @@ int main() {
 		// 1. clear screen with the background color (RGBA, each component in 0..1)
 		glClearColor(0.1f, 0.1f, 0.15f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
+
+		// Draw background stars first
+		drawStars(stars);
 
 		// 2.1 Draw event horizon (filled black circle)
 		glColor3f(0.0f, 0.0f, 0.0f);
