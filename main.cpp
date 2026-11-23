@@ -244,6 +244,19 @@ void drawCircleOutline(float center_x, float center_y, float radius, int segment
 	glEnd();
 }
 
+void drawDashedCircle(float x, float y, float radius, int segments) {
+	// Draw every other segment to create dashes
+	for (auto i = 0; i < segments; i += 2) {
+		const float theta1{(static_cast<float>(i) * 2.0f * static_cast<float>(M_PI)) / static_cast<float>(segments)};
+		const float theta2{(static_cast<float>(i + 1) * 2.0f * static_cast<float>(M_PI)) / static_cast<float>(segments)};
+
+		glBegin(GL_LINES);
+		glVertex2f(x + radius * std::cos(theta1), y + radius * std::sin(theta1));
+		glVertex2f(x + radius * std::cos(theta2), y + radius * std::sin(theta2));
+		glEnd();
+	}
+}
+
 void drawRays(const std::vector<Ray>& rays) {
 	// Enable transparency for fading effect
 	glEnable(GL_BLEND);
@@ -428,7 +441,7 @@ int main() {
 		glColor3f(0.0f, 0.8f, 0.8f);
 		glLineWidth(2.0f);
 		constexpr float photonRadius = 1.5 * rs;
-		drawCircleOutline(0.0f, 0.0f, photonRadius, 100);
+		drawDashedCircle(0.0f, 0.0f, photonRadius, 100);
 
 		for (auto& ray : rays) {
 			ray.integrate(1.0, maxDistance);
