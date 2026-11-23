@@ -412,6 +412,15 @@ int main() {
 		glViewport(0, 0, fbWidth, fbHeight);
 	}
 
+	// todo move parameter to settings
+	// Enable visual polish features (GL_LINE_SMOOTH, GL_BLEND, GL_NICEST hint)
+	// Generates partially transparent edge pixels
+	glEnable(GL_LINE_SMOOTH);
+	glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+	// GL_BLEND with GL_SRC_ALPHA blends those pixels with the background
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
 	// Set up projection matrix with glOrtho()
 	{
 		// todo glMatrixMode, glOrtho, glBegin/glVertex/glColor is legacy API -> replace later
