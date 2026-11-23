@@ -14,6 +14,13 @@
 #endif
 
 namespace {
+	// physical constants
+	constexpr double c = 299792458.0;      // Speed of light (m/s)
+	constexpr double G = 6.67430e-11;      // Gravitational constant (m³/kg·s²)
+	// todo: make parameter customizable in runtime
+	constexpr double BH_MASS = 8.54e36;    // Blackhole mass in kg
+	constexpr double rs = 2.0 * G * BH_MASS / (c * c);  // Event horizon radius
+
 	// automatically calls glfwTerminate in destructor
 	struct GLFWTerminateCaller {
 		GLFWTerminateCaller() = default;
@@ -29,6 +36,48 @@ namespace {
 		~GLFWTerminateCaller() {
 			glfwTerminate();
 		}
+	};
+
+	struct Ray {
+		Ray(double x, double y, double vx, double vy) {
+			r = std::sqrt(x * x + y * y);
+			phi = std::atan2(y, x);
+
+			const auto cos_phi = std::cos(phi);
+			const auto sin_phi = std::sin(phi);
+			v_r = vx * cos_phi + vy * sin_phi;
+			v_phi = (-vx * sin_phi + vy * cos_phi) / r;
+
+			L = r * r * v_phi;
+
+			const auto f = 1.0 - rs / r;
+			const auto dt_dlambda = std::sqrt((v_r * v_r) / (f * f) + (r * r * v_phi * v_phi) / f);
+			E = f * dt_dlambda;
+
+			std::cout << "\nRay initialized:\n";
+			std::cout << "  Position: r = " << (r / rs) << " rs\n";
+			std::cout << "  Energy: E = " << E << "\n";
+			std::cout << "  Angular momentum: L = " << L << "\n\n";
+		}
+
+		void displayConservedQuantities() const {
+			std::cout << "Conserved quantities:\n";
+			std::cout << "  E = " << E << " (energy)\n";
+			std::cout << "  L = " << L << " (angular momentum)\n";
+
+			// Show that these define the ray's behavior
+			double impactParameter{L / E};
+			std::cout << "  Impact parameter b = " << impactParameter / rs << " rs\n";
+		}
+		// polar coordinates
+		double r;     // Radial distance from black hole
+		double phi;   // Angular position (radians)
+		// velocity in polar coordinates
+		double v_r;   // Radial velocity (dr/dλ)
+		double v_phi; // Angular velocity (dφ/dλ)
+
+		double L;     // Conserved angular momentum
+		double E;     // Conserved energy parameter
 	};
 }
 
@@ -124,6 +173,23 @@ int main() {
 		// Reset matrix
 		glLoadIdentity();
 	}
+
+	// Display black hole information
+	std::cout << "\n=== Black Hole Properties ===\n";
+	std::cout << "Mass: " << BH_MASS << " kg (Sagittarius A*)\n";
+	std::cout << "Schwarzschild radius: " << rs << " m\n";
+	std::cout << "  = " << rs / 1000.0 << " km\n";
+	std::cout << "  = " << rs / 1e9 << " million km\n";
+	std::cout << "Photon sphere: " << 1.5 * rs / 1e9 << " million km\n\n";
+
+	// Create test ray - horizontal ray approaching from left
+	constexpr double initialX = -1e11;
+	constexpr double initialY = -3.27606302719999999e10;
+	constexpr double velocityX = c;
+	constexpr double velocityY = 0.0;
+
+	Ray testRay{initialX, initialY, velocityX, velocityY};
+	testRay.displayConservedQuantities();
 
 	// render loop
 	while (!glfwWindowShouldClose(window.get())) {
