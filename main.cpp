@@ -32,7 +32,7 @@ namespace {
 	// Forward declarations (needed for Ray::integrate method)
 	struct Ray;
 
-	void rk4Step(Ray& ray, float dlambda);
+	void verletStep(Ray& ray, float dlambda);
 
 	// automatically calls glfwTerminate in destructor
 	struct GLFWTerminateCaller {
@@ -101,7 +101,7 @@ namespace {
 			if (isCaptured() || hasEscaped(maxDistance)) {
 				return;
 			}
-			rk4Step(*this, dlambda);
+			verletStep(*this, dlambda);
 			recordPosition();
 			updateDeflection();
 		}
@@ -146,111 +146,42 @@ namespace {
 		std::vector<glm::vec2> trail;
 	};
 
-	// This computes the right-hand side of the geodesic differential equations
-	// Parameters:
-	//   ray - the current state
-	//   rhs - output array for [dr/dλ, dφ/dλ, dv_r/dλ, dv_phi/dλ]
-	void geodesicRHS(const Ray& ray, float rhs[4]) {
-		// Extract variables from ray
-		auto r = ray.r;
-		auto v_r = ray.v_r;
-		auto v_phi = ray.v_phi;
-		auto E = ray.E;
+	// Compute accelerations for geodesic motion
+	// Returns radial and angular accelerations from Schwarzschild geodesic equations
+	void computeAccelerations(float r, float v_r, float v_phi, float E_val, float& a_r, float& a_phi) {
+		float f = 1.f - kRs / r;
+		float dt_dlambda = E_val / f;
 
-		auto f_rhs{1.f - kRs / r};
-		auto dt_dlambda{E / f_rhs};
+		// Radial acceleration from Schwarzschild geodesic equation
+		a_r = -(kRs / (2.f * r * r)) * f * (dt_dlambda * dt_dlambda)
+			+ (kRs / (2.f * r * r * f)) * (v_r * v_r)
+			+ (r - kRs) * (v_phi * v_phi);
 
-		// rhs[0] = dr/dλ (position derivative = velocity)
-		rhs[0] = v_r;
-
-		// rhs[1] = dφ/dλ (angular position derivative = angular velocity)
-		rhs[1] = v_phi;
-
-
-		// Gravitational attraction (negative):
-		// * This is the inward pull from gravity
-		// * Negative sign means acceleration toward the black hole
-		// * Depends on how fast time is passing (dt/dλ)
-		// * Strongest contribution near the black hole
-		const auto t1 = -(kRs / (2.f * r * r)) * f_rhs * (dt_dlambda * dt_dlambda);
-		// Radial Velocity Correction (Positive)
-		// * Relativistic correction for radial motion
-		// * Always positive (outward effect)
-		// * Important when moving quickly in the radial direction
-		// * The 1/f_rhs factor makes it large near the horizon
-		const auto t2 = (kRs / (2.f * r * r * f_rhs)) * (v_r * v_r);
-		// Centrifugal Effect (Positive)
-		// * Like centrifugal force: angular motion creates outward acceleration
-		// * Proportional to (angular velocity)²
-		// * The (r - rs) factor is the effective centrifugal radius
-		// * Can cause light to orbit the black hole
-		const auto t3 = (r - kRs) * (v_phi * v_phi);
-		// rhs[2] = dv_r/dλ (radial acceleration from geodesic equation)
-		// Exact Schwarzschild null geodesic equation:
-		// dv_r/dλ = -(rs/(2r²))f(dt/dλ)² + (rs/(2r²f))(v_r)² + (r - rs)(v_φ)²
-		rhs[2] = t1 + t2 + t3;
-
-		// rhs[3] = dv_phi/dλ (angular acceleration from geodesic equation)
-		// dv_φ/dλ = -2v_r·v_φ/r
-		rhs[3] = -2.f * v_r * v_phi / r;
+		// Angular acceleration: dv_phi/dlambda = -2 * v_r * v_phi / r
+		a_phi = -2.f * v_r * v_phi / r;
 	}
 
-	// This adds two state vectors: out = a + b * factor
-	// Parameters:
-	//   a[4] - first state vector
-	//   b[4] - second state vector
-	//   factor - scaling factor for b
-	//   out[4] - result
-	void addState(const float a[4], const float b[4], float factor, float out[4]) {
-		for (int i = 0; i < 4; ++i) {
-			out[i] = a[i] + b[i] * factor;
-		}
-	}
+	// Symplectic Velocity Verlet (Stormer-Verlet) integration step
+	// Uses "kick-drift-kick" scheme that preserves phase space structure
+	// https://www.algorithm-archive.org/contents/verlet_integration/verlet_integration.html
+	void verletStep(Ray& ray, float dlambda) {
+		float a_r, a_phi;
+		// KICK: half-step velocity update using initial accelerations
+		// Compute accelerations at current position, then update velocities by half a step.
+		computeAccelerations(ray.r, ray.v_r, ray.v_phi, ray.E, a_r, a_phi);
+		float v_r_half = ray.v_r + 0.5f * dlambda * a_r;
+		float v_phi_half = ray.v_phi + 0.5f * dlambda * a_phi;
 
-	// This performs one RK4 integration step
-	// Parameters:
-	//   ray - the ray to update (modified in place)
-	//   dlambda - step size along affine parameter
-	void rk4Step(Ray& ray, float dlambda) {
-		// Current state
-		float y0[4]{ray.r, ray.phi, ray.v_r, ray.v_phi};
-		float k1[4], k2[4], k3[4], k4[4], temp[4];
+		// DRIFT: Full-step position update using half-step velocities
+		// Update positions using the half-step velocities. This is a full step.
+		ray.r += dlambda * v_r_half;
+		ray.phi += dlambda * v_phi_half;
 
-		// k1: Slope at current point
-		geodesicRHS(ray, k1);
-
-		// k2: Slope at midpoint using k1
-		addState(y0, k1, dlambda / 2.f, temp);
-		Ray r2 = ray;
-		r2.r = temp[0];
-		r2.phi = temp[1];
-		r2.v_r = temp[2];
-		r2.v_phi = temp[3];
-		geodesicRHS(r2, k2);
-
-		// k3: Slope at midpoint using k2 (better estimate)
-		addState(y0, k2, dlambda / 2.f, temp);
-		Ray r3 = ray;
-		r3.r = temp[0];
-		r3.phi = temp[1];
-		r3.v_r = temp[2];
-		r3.v_phi = temp[3];
-		geodesicRHS(r3, k3);
-
-		// k4: Slope at endpoint using k3
-		addState(y0, k3, dlambda, temp);
-		Ray r4 = ray;
-		r4.r = temp[0];
-		r4.phi = temp[1];
-		r4.v_r = temp[2];
-		r4.v_phi = temp[3];
-		geodesicRHS(r4, k4);
-
-		// Final weighted average: (k1 + 2*k2 + 2*k3 + k4) / 6
-		ray.r += (dlambda / 6.f) * (k1[0] + 2.f * k2[0] + 2.f * k3[0] + k4[0]);
-		ray.phi += (dlambda / 6.f) * (k1[1] + 2.f * k2[1] + 2.f * k3[1] + k4[1]);
-		ray.v_r += (dlambda / 6.f) * (k1[2] + 2.f * k2[2] + 2.f * k3[2] + k4[2]);
-		ray.v_phi += (dlambda / 6.f) * (k1[3] + 2.f * k2[3] + 2.f * k3[3] + k4[3]);
+		// KICK: half-step velocity update using new accelerations
+		// Compute accelerations at new position, then complete the velocity update.
+		computeAccelerations(ray.r, v_r_half, v_phi_half, ray.E, a_r, a_phi);
+		ray.v_r = v_r_half + 0.5f * dlambda * a_r;
+		ray.v_phi = v_phi_half + 0.5f * dlambda * a_phi;
 	}
 }
 
