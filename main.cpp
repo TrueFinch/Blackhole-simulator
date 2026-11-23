@@ -2,27 +2,51 @@
 // Created by Vladimir Glushkov on 23.11.2026.
 //
 
+#include <iostream>
+#include <memory>
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 
+namespace {
+	// automatically calls glfwTerminate in destructor
+	struct GLFWTerminateCaller {
+		GLFWTerminateCaller() = default;
+
+		GLFWTerminateCaller(const GLFWTerminateCaller&) = delete;
+
+		GLFWTerminateCaller(GLFWTerminateCaller&&) = delete;
+
+		GLFWTerminateCaller& operator=(const GLFWTerminateCaller&) = delete;
+
+		GLFWTerminateCaller& operator=(GLFWTerminateCaller&&) = delete;
+
+		~GLFWTerminateCaller() {
+			glfwTerminate();
+		}
+	};
+}
+
 int main() {
-	// This verifies all libraries are properly linked
-	// We test linking but don't actually initialize (Docker has no display)
+	glfwSetErrorCallback([](const int error_code, const char* error_message) {
+		std::cerr << "GLFW error: " << error_code << ": " << error_message << std::endl;
+	});
+	if (glfwInit() == GLFW_FALSE) {
+		std::cerr << "GLFW error: initialization failed" << std::endl;
+		return 1;
+	}
 
-	// These symbols must resolve during linking:
-	// - glfwInit from GLFW
-	// - glGetString from OpenGL
-	// - glm::vec3 from GLM (header-only)
+	// destroyed last before program exit
+	GLFWTerminateCaller guard;
 
-	glm::vec3 testVector{1.0f, 2.0f, 3.0f};
-	(void)testVector; // Suppress unused warning
-
-	// Reference the symbols so linker checks them
-	void* glfwPtr = (void*)&glfwInit;
-	void* glPtr = (void*)&glGetString;
-	(void)glfwPtr;
-	(void)glPtr;
+	std::unique_ptr<GLFWwindow, decltype(&glfwDestroyWindow)> window{
+		glfwCreateWindow(800, 600, "Black hole simulator", nullptr, nullptr),
+		&glfwDestroyWindow
+	};
+	if (!window) {
+		std::cerr << "GLFW error: window creation failed" << std::endl;
+		return 1;
+	}
 
 	return 0;
 }
