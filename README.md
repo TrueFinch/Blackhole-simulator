@@ -22,3 +22,16 @@ Install the dependencies:
 ```
 
 The script uses `sudo` when it is not run as root.
+
+## Integrator benchmark
+
+`benchmarks/integrator_benchmark.cpp` compares the ray integrators tried in this
+project (RK4, a naive Velocity Verlet and the Velocity Verlet used now): accuracy
+against a high-precision reference, convergence order and time per step.
+It doesn't need OpenGL. Build it in Release, otherwise the timings mean nothing:
+
+```bash
+cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release
+cmake --build build-release --target integrator_benchmark
+./build-release/integrator_benchmark
+```

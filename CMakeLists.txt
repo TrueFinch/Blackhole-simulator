@@ -14,3 +14,7 @@ set(DEPS glfw GLEW::GLEW glm::glm OpenGL::GL)
 add_executable(blackhole_simulator main.cpp)
 
 target_link_libraries(blackhole_simulator PRIVATE ${DEPS})
+
+# Accuracy and performance comparison of the ray integrators (no OpenGL needed).
+# Build it in Release for meaningful timings.
+add_executable(integrator_benchmark benchmarks/integrator_benchmark.cpp)

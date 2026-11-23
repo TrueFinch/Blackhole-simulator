@@ -34,6 +34,17 @@ namespace {
 
 	void verletStep(Ray& ray, float dlambda);
 
+	// Radial acceleration of a light ray in Schwarzschild spacetime:
+	//   d²r/dλ² = L²/r³ · (1 - 3rs/(2r))
+	// Derived from the null geodesic equation using conservation of L
+	// (dφ/dλ = L/r²), so it depends on position only. That is what makes
+	// Velocity Verlet symplectic (and second-order) for this system.
+	// It is the negative gradient of the effective potential L²/(2r²)·(1 - rs/r),
+	// whose maximum at r = 1.5 rs is the photon sphere.
+	float radialAcceleration(float r, float L) {
+		return L * L / (r * r * r) * (1.f - 1.5f * kRs / r);
+	}
+
 	// automatically calls glfwTerminate in destructor
 	struct GLFWTerminateCaller {
 		GLFWTerminateCaller() = default;
@@ -76,6 +87,9 @@ namespace {
 			const auto dt_dlambda = std::sqrt((v_r * v_r) / (f * f) + (r * r * v_phi * v_phi) / f);
 			// Energy E = f * dt/dλ
 			E = f * dt_dlambda;
+
+			// Acceleration at the start position; verletStep keeps it up to date
+			a_r = radialAcceleration(r, L);
 
 			trail.emplace_back(x, y);
 
@@ -133,7 +147,8 @@ namespace {
 		float phi; // Angular position (radians)
 		// velocity in polar coordinates
 		float v_r; // Radial velocity (dr/dλ)
-		float v_phi; // Angular velocity (dφ/dλ)
+		float v_phi; // Angular velocity (dφ/dλ), always L/r²
+		float a_r; // Radial acceleration (d²r/dλ²) at the current r
 
 		float L; // Conserved angular momentum
 		float E; // Conserved energy parameter
@@ -146,42 +161,29 @@ namespace {
 		std::vector<glm::vec2> trail;
 	};
 
-	// Compute accelerations for geodesic motion
-	// Returns radial and angular accelerations from Schwarzschild geodesic equations
-	void computeAccelerations(float r, float v_r, float v_phi, float E_val, float& a_r, float& a_phi) {
-		float f = 1.f - kRs / r;
-		float dt_dlambda = E_val / f;
-
-		// Radial acceleration from Schwarzschild geodesic equation
-		a_r = -(kRs / (2.f * r * r)) * f * (dt_dlambda * dt_dlambda)
-			+ (kRs / (2.f * r * r * f)) * (v_r * v_r)
-			+ (r - kRs) * (v_phi * v_phi);
-
-		// Angular acceleration: dv_phi/dlambda = -2 * v_r * v_phi / r
-		a_phi = -2.f * v_r * v_phi / r;
-	}
-
-	// Symplectic Velocity Verlet (Stormer-Verlet) integration step
-	// Uses "kick-drift-kick" scheme that preserves phase space structure
+	// Symplectic Velocity Verlet (Stormer-Verlet) integration step, "kick-drift-kick".
+	// Symplectic because the radial acceleration depends on r only (see radialAcceleration):
+	// energy error stays bounded and L is conserved exactly by construction.
+	// One acceleration evaluation per step: the value at the end of a step
+	// is cached in ray.a_r and reused at the start of the next one.
 	// https://www.algorithm-archive.org/contents/verlet_integration/verlet_integration.html
 	void verletStep(Ray& ray, float dlambda) {
-		float a_r, a_phi;
-		// KICK: half-step velocity update using initial accelerations
-		// Compute accelerations at current position, then update velocities by half a step.
-		computeAccelerations(ray.r, ray.v_r, ray.v_phi, ray.E, a_r, a_phi);
-		float v_r_half = ray.v_r + 0.5f * dlambda * a_r;
-		float v_phi_half = ray.v_phi + 0.5f * dlambda * a_phi;
+		// KICK: half-step radial velocity update with the acceleration at the current r
+		const float v_r_half = ray.v_r + 0.5f * dlambda * ray.a_r;
 
-		// DRIFT: Full-step position update using half-step velocities
-		// Update positions using the half-step velocities. This is a full step.
+		// DRIFT: full-step position update.
+		// φ is advanced with dφ/dλ = L/r² at the midpoint radius (second-order accurate).
+		const float r_old = ray.r;
 		ray.r += dlambda * v_r_half;
-		ray.phi += dlambda * v_phi_half;
+		const float r_mid = 0.5f * (r_old + ray.r);
+		ray.phi += dlambda * ray.L / (r_mid * r_mid);
 
-		// KICK: half-step velocity update using new accelerations
-		// Compute accelerations at new position, then complete the velocity update.
-		computeAccelerations(ray.r, v_r_half, v_phi_half, ray.E, a_r, a_phi);
-		ray.v_r = v_r_half + 0.5f * dlambda * a_r;
-		ray.v_phi = v_phi_half + 0.5f * dlambda * a_phi;
+		// KICK: complete the radial velocity update with the acceleration at the new r
+		ray.a_r = radialAcceleration(ray.r, ray.L);
+		ray.v_r = v_r_half + 0.5f * dlambda * ray.a_r;
+
+		// Angular velocity follows from conservation of L (used by updateDeflection)
+		ray.v_phi = ray.L / (ray.r * ray.r);
 	}
 }
 
