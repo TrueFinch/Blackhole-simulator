@@ -22,6 +22,14 @@ namespace {
 	constexpr double BH_MASS = 8.54e36; // Blackhole mass in kg
 	constexpr double rs = 2.0 * G * BH_MASS / (c * c); // Event horizon radius
 
+	//Physical viewport: ±100 billion meters horizontally,
+	//±75 billion meters vertically.
+	//This shows a region much larger than the Schwarzschild radius (~26 million meters).
+	constexpr double viewWidth = 1e11;
+	constexpr double viewHeight = 7.5e10;
+	// Derive maxDistance from viewport width
+	constexpr double maxDistance = 2.0 * viewWidth;
+
 	// Forward declarations (needed for Ray::integrate method)
 	struct Ray;
 
@@ -60,22 +68,7 @@ namespace {
 			const auto dt_dlambda = std::sqrt((v_r * v_r) / (f * f) + (r * r * v_phi * v_phi) / f);
 			E = f * dt_dlambda;
 
-			std::cout << "\nRay initialized:\n";
-			std::cout << "  Position: r = " << (r / rs) << " rs\n";
-			std::cout << "  Energy: E = " << E << "\n";
-			std::cout << "  Angular momentum: L = " << L << "\n\n";
-
 			trail.emplace_back(static_cast<float>(x), static_cast<float>(y));
-		}
-
-		void displayConservedQuantities() const {
-			std::cout << "Conserved quantities:\n";
-			std::cout << "  E = " << E << " (energy)\n";
-			std::cout << "  L = " << L << " (angular momentum)\n";
-
-			// Show that these define the ray's behavior
-			double impactParameter{L / E};
-			std::cout << "  Impact parameter b = " << impactParameter / rs << " rs\n";
 		}
 
 		[[nodiscard]] bool isCaptured() const {
@@ -219,57 +212,6 @@ namespace {
 		ray.v_r += (dlambda / 6.0) * (k1[2] + 2.0 * k2[2] + 2.0 * k3[2] + k4[2]);
 		ray.v_phi += (dlambda / 6.0) * (k1[3] + 2.0 * k2[3] + 2.0 * k3[3] + k4[3]);
 	}
-
-	// This function tests the RK4 integration and verifies conserved quantities
-	// Parameters:
-	//   ray - the ray to integrate (passed by value, so original is not modified)
-	//   num_steps - number of integration steps to perform
-	//   dlambda - step size for each integration step
-	void debugRK4Integration(Ray ray, int num_steps, double dlambda) {
-		std::cout << "\n=== RK4 Integration Test ===\n";
-		std::cout << "Step size (dlambda): " << dlambda << "\n";
-		std::cout << "Number of steps: " << num_steps << "\n\n";
-
-		// Store initial conserved quantities
-		double initial_L = ray.L;
-		double initial_E = ray.E;
-
-		std::cout << "Initial state:\n";
-		std::cout << "  r = " << (ray.r / rs) << " rs\n";
-		std::cout << "  φ = " << ray.phi << " rad\n";
-		std::cout << "  v_r = " << ray.v_r << "\n";
-		std::cout << "  v_φ = " << ray.v_phi << "\n\n";
-
-		// Run integration steps
-		for (int i{0}; i < num_steps; ++i) {
-			rk4Step(ray, dlambda);
-		}
-
-		std::cout << "After " << num_steps << " RK4 steps:\n";
-		std::cout << "  r = " << (ray.r / rs) << " rs\n";
-		std::cout << "  φ = " << ray.phi << " rad\n";
-		std::cout << "  v_r = " << ray.v_r << "\n";
-		std::cout << "  v_φ = " << ray.v_phi << "\n\n";
-
-		// Recompute conserved quantities
-		double current_L = ray.r * ray.r * ray.v_phi;
-		double f = 1.0 - rs / ray.r;
-		double dt_dlambda = std::sqrt((ray.v_r * ray.v_r) / (f * f) + (ray.r * ray.r * ray.v_phi * ray.v_phi) / f);
-		double current_E = f * dt_dlambda;
-
-		std::cout << "Conserved quantity check:\n";
-		std::cout << "  Initial L = " << initial_L << "\n";
-		std::cout << "  Current L = " << current_L << "\n";
-		std::cout << "  Initial E = " << initial_E << "\n";
-		std::cout << "  Current E = " << current_E << "\n";
-
-		// Calculate drift percentages
-		double L_drift{std::abs(current_L - initial_L) / std::abs(initial_L) * 100.0};
-		double E_drift{std::abs(current_E - initial_E) / std::abs(initial_E) * 100.0};
-
-		std::cout << "  L drift: " << L_drift << "%\n";
-		std::cout << "  E drift: " << E_drift << "%\n";
-	}
 }
 
 void drawCircle(float center_x, float center_y, float radius, int segments) {
@@ -410,28 +352,6 @@ int main() {
 	std::cout << "  = " << rs / 1000.0 << " km\n";
 	std::cout << "  = " << rs / 1e9 << " million km\n";
 	std::cout << "Photon sphere: " << 1.5 * rs / 1e9 << " million km\n\n";
-
-	// Create test ray - horizontal ray approaching from left
-	constexpr double initialX = -1e11;
-	constexpr double initialY = -3.27606302719999999e10;
-	constexpr double velocityX = c;
-	constexpr double velocityY = 0.0;
-
-	Ray testRay{initialX, initialY, velocityX, velocityY};
-	testRay.displayConservedQuantities();
-
-	// Run integration test
-	const double dlambda = 1.0;
-	const int num_steps = 10;
-	debugRK4Integration(testRay, num_steps, dlambda);
-
-	//Physical viewport: ±100 billion meters horizontally,
-	//±75 billion meters vertically.
-	//This shows a region much larger than the Schwarzschild radius (~26 million meters).
-	constexpr double viewWidth = 1e11;
-	constexpr double viewHeight = 7.5e10;
-	// Derive maxDistance from viewport width
-	constexpr double maxDistance = 2.0 * viewWidth;
 
 	{
 		// todo glMatrixMode, glOrtho, glBegin/glVertex/glColor is legacy API -> replace later
