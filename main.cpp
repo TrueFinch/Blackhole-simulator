@@ -2,6 +2,7 @@
 // Created by Vladimir Glushkov on 23.11.2026.
 //
 
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 #include <memory>
@@ -337,8 +338,16 @@ void drawRays(const std::vector<Ray>& rays) {
 	glDisable(GL_BLEND);
 }
 
-std::vector<glm::vec2> generateStars(int count) {
-	std::vector<glm::vec2> stars;
+struct Star {
+	glm::vec2 pos;
+	float baseBrightness; // average brightness
+	float amplitude; // how strong it twinkles
+	float frequencyHz; // twinkle rate
+	float phase1; // offset so stars don't pulse in sync
+	float phase2; // offset so stars don't pulse in sync
+};
+
+std::vector<Star> generateStars(int count) {
 	std::random_device rd;
 	std::mt19937 gen(rd());
 
@@ -346,19 +355,43 @@ std::vector<glm::vec2> generateStars(int count) {
 	std::uniform_real_distribution<float> distX(-viewWidth, viewWidth);
 	std::uniform_real_distribution<float> distY(-viewHeight, viewHeight);
 
-	for (int i{0}; i < count; ++i) {
-		stars.emplace_back(distX(gen), distY(gen));
+	std::uniform_real_distribution baseBrightness(0.5f, 0.9f);
+	std::uniform_real_distribution amplitude(0.05f, 0.2f);
+	std::uniform_real_distribution frequencyHz(0.2f, 0.5f);
+	std::uniform_real_distribution phase1(0.f, 2.f * static_cast<float>(M_PI));
+	std::uniform_real_distribution phase2(0.f, 2.f * static_cast<float>(M_PI));
+
+	std::vector<Star> stars;
+	for (auto i = 0; i < count; ++i) {
+		stars.emplace_back(
+			glm::vec2(distX(gen), distY(gen)),
+			baseBrightness(gen), amplitude(gen),
+			frequencyHz(gen), phase1(gen), phase2(gen)
+		);
 	}
 	return stars;
 }
 
 //todo: add different colors and sizes of stars
-void drawStars(const std::vector<glm::vec2>& stars) {
-	glPointSize(2.f);
-	glColor3f(1.f, 1.f, 1.f);
+void drawStars(const std::vector<Star>& stars, float time) {
+	constexpr auto kWeight1 = 0.7f;
+	constexpr auto kWeight2 = 0.3f;
+	// Frequency ratio of the second sine to the first.
+	// With an integer (or simple fraction) ratio the combined pattern repeats
+	// every few periods of the main sine. With an irrational ratio the peaks
+	// line up differently each time, so the twinkle looks random but stays smooth.
+	// The golden ratio is the irrational number worst approximated by fractions,
+	// so the pattern doesn't even nearly repeat.
+	constexpr auto kSecondSinSpeed = 1.618034f;
+
 	glBegin(GL_POINTS);
 	for (const auto& star: stars) {
-		glVertex2f(star.x, star.y);
+		const auto speed = 2.f * static_cast<float>(M_PI) * star.frequencyHz;
+		const auto wave = kWeight1 * std::sin(speed * time + star.phase1)
+						+ kWeight2 * std::sin(speed * kSecondSinSpeed * time + star.phase2);
+		const auto b = std::clamp(star.baseBrightness + star.amplitude * wave, 0.f, 1.f);
+		glColor3f(b, b, b);
+		glVertex2f(star.pos.x, star.pos.y);
 	}
 	glEnd();
 }
@@ -464,24 +497,24 @@ int main() {
 	const auto stars = generateStars(kNumStars);
 
 	std::vector<Ray> rays;
-	constexpr int numRays = 10;
+	constexpr int numRays = 30;
 	constexpr double startX = -viewWidth;
 	constexpr double vx = c;
 	constexpr double vy = 0.0;
 
 	for (auto i = 0; i < numRays; ++i) {
-		const double startY = (2.5 + i * 0.1) * rs;
+		const double startY = - viewHeight + i * viewHeight * 2.f / numRays;
 		rays.emplace_back(startX, startY, vx, vy);
 	}
 
 	// render loop
 	while (!glfwWindowShouldClose(window.get())) {
 		// 1. clear screen with the background color (RGBA, each component in 0..1)
-		glClearColor(0.1f, 0.1f, 0.15f, 1.0f);
+		glClearColor(0.06f, 0.06f, 0.08f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
 
 		// Draw background stars first
-		drawStars(stars);
+		drawStars(stars, static_cast<float>(glfwGetTime()));
 
 		// 2.1 Draw event horizon (filled black circle)
 		glColor3f(0.0f, 0.0f, 0.0f);
