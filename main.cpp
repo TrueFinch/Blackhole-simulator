@@ -62,8 +62,16 @@ namespace {
 		}
 	};
 
+	enum class RayScenario {
+		PARALLEL, // Parallel rays from left side (distant starlight)
+		POINT_SOURCE, // Rays emanating from a single point (gravitational lensing)
+		ORBITING // Special orbiting ray (photon sphere)
+	};
+
 	struct Ray {
-		Ray(float x, float y, float vx, float vy) {
+		Ray(float x, float y, float vx, float vy, RayScenario scenario, int startFrame = 0)
+			: scenario(scenario)
+			, startFrame(startFrame) {
 			// Convert Cartesian position to polar coordinates
 			r = std::sqrt(x * x + y * y);
 			phi = std::atan2(y, x);
@@ -111,8 +119,8 @@ namespace {
 			trail.emplace_back(x, y);
 		}
 
-		void integrate(float dlambda, float maxDistance) {
-			if (isCaptured() || hasEscaped(maxDistance)) {
+		void integrate(float dlambda, float maxDistance, int currentFrame) {
+			if (!isActive(currentFrame) || isCaptured() || hasEscaped(maxDistance)) {
 				return;
 			}
 			verletStep(*this, dlambda);
@@ -142,6 +150,10 @@ namespace {
 			deflection = std::abs(totalTurn);
 		}
 
+		[[nodiscard]] bool isActive(int currentFrame) const {
+			return currentFrame >= startFrame;
+		}
+
 		// polar coordinates
 		float r; // Radial distance from black hole
 		float phi; // Angular position (radians)
@@ -157,6 +169,9 @@ namespace {
 		float prevVelocityAngle;
 		float totalTurn = 0.f;
 		float deflection = 0.f; // How much direction has changed
+
+		RayScenario scenario;
+		int startFrame;
 
 		std::vector<glm::vec2> trail;
 	};
@@ -229,7 +244,7 @@ void drawDashedCircle(float x, float y, float radius, int segments) {
 	}
 }
 
-void drawRays(const std::vector<Ray>& rays) {
+void drawRays(const std::vector<Ray>& rays, int currentFrame) {
 	// Enable transparency for fading effect
 	glEnable(GL_BLEND);
 	// Configure how transparent colors blend with background
@@ -239,17 +254,32 @@ void drawRays(const std::vector<Ray>& rays) {
 	// Draw trails with fading effect
 	for (const auto& ray: rays) {
 		const auto n = ray.trail.size();
-		if (n < 2) {
+		if (!ray.isActive(currentFrame) || n < 2) {
 			continue;
 		}
 		// Normalize deflection (0 to π radians) to 0–1 scale
 		constexpr float maxDeflection = M_PI;
-		const float t = std::min(1.0f, static_cast<float>(ray.deflection) / maxDeflection);
+		const float t = std::min(1.0f, ray.deflection / maxDeflection);
 
-		// Cyan → Purple → Red gradient
-		const float r = t; // 0 → 1 (increases with deflection)
-		const float g = 0.5f * (1.0f - t); // 0.5 → 0 (decreases from mid-value)
-		const float b = 1.0f - t; // 1 → 0 (decreases with deflection)
+		// Color based on ray scenario
+		float r, g, b;
+
+		if (ray.scenario == RayScenario::POINT_SOURCE) {
+			// Green to Yellow gradient based on deflection
+			r = 0.5f + 0.5f * t;  // 0.5 to 1.0 (increases with deflection)
+			g = 1.0f;             // Constant green
+			b = 0.0f;
+		} else if (ray.scenario == RayScenario::ORBITING) {
+			// Solid bright magenta (no gradient)
+			r = 1.0f;
+			g = 0.2f;
+			b = 1.0f;
+		} else {
+			// PARALLEL: Cyan to Purple to Red gradient
+			r = t;                    // 0 to 1
+			g = 0.5f * (1.0f - t);    // 0.5 to 0
+			b = 1.0f - t;             // 1 to 0
+		}
 
 		glBegin(GL_LINE_STRIP);
 		for (auto i = 0; i < n; ++i) {
@@ -262,11 +292,18 @@ void drawRays(const std::vector<Ray>& rays) {
 
 	// Draw current ray positions as bright points
 	glPointSize(3.f);
-	glColor3f(1.f, 1.f, 0.f);
 
 	glBegin(GL_POINTS);
 	for (const auto& ray: rays) {
-		if (!ray.trail.empty() && !ray.isCaptured()) {
+		if (ray.isActive(currentFrame) && !ray.trail.empty() && !ray.isCaptured()) {
+			// Color by scenario
+			if (ray.scenario == RayScenario::POINT_SOURCE) {
+				glColor3f(0.5f, 1.0f, 0.0f);  // Lime green
+			} else if (ray.scenario == RayScenario::ORBITING) {
+				glColor3f(1.0f, 0.2f, 1.0f);  // Magenta
+			} else {
+				glColor3f(1.0f, 1.0f, 0.0f);  // Yellow
+			}
 			glVertex2f(ray.trail.back().x, ray.trail.back().y);
 		}
 	}
@@ -289,7 +326,7 @@ std::vector<Star> generateStars(int count) {
 	std::random_device rd;
 	std::mt19937 gen(rd());
 
-	// Match your viewport dimensions: ±100 billion meters X, ±75 billion meters Y
+	// Match the viewport dimensions (in units of rs)
 	std::uniform_real_distribution<float> distX(-viewWidth, viewWidth);
 	std::uniform_real_distribution<float> distY(-viewHeight, viewHeight);
 
@@ -310,7 +347,6 @@ std::vector<Star> generateStars(int count) {
 	return stars;
 }
 
-//todo: add different colors and sizes of stars
 void drawStars(const std::vector<Star>& stars, float time) {
 	constexpr auto kWeight1 = 0.7f;
 	constexpr auto kWeight2 = 0.3f;
@@ -392,10 +428,6 @@ int main() {
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	// Display black hole information
-	std::cout << "\n=== Black Hole Properties ===\n";
-	std::cout << "Schwarzschild radius: " << kRs << " (geometric units)\n";
-
 	{
 		// todo glMatrixMode, glOrtho, glBegin/glVertex/glColor is legacy API -> replace later
 		// Switch to projection mode
@@ -413,16 +445,67 @@ int main() {
 
 	const auto stars = generateStars(kNumStars);
 
-	std::vector<Ray> rays;
-	constexpr int numRays = 30;
-	constexpr float startX = -viewWidth;
-	constexpr float vx = 1.f;
-	constexpr float vy = 0.f;
+	// Frame at which each scenario starts
+	constexpr int kOrbitingStartFrame = 0;
+	constexpr int kPointSourceStartFrame = 180;
+	constexpr int kParallelStartFrame = 360;
 
-	for (auto i = 0; i < numRays; ++i) {
-		const float startY = -viewHeight + static_cast<float>(i) * viewHeight * 2.f / numRays;
-		rays.emplace_back(startX, startY, vx, vy);
+	std::vector<Ray> rays;
+	// SCENARIO 1: Special orbiting ray near photon sphere (1 ray)
+	constexpr float orbitStartX = -0.9f * viewWidth; // 90% left
+	// Start height just above the capture threshold. The critical impact parameter is
+	// b = L/E = 3√3/2 rs ≈ 2.598 rs; since the ray starts at a finite distance, E < 1 and
+	// b is slightly larger than the start height. The threshold is extremely sensitive
+	// (and depends on dλ and float precision): with dλ = 0.05 the ray is captured
+	// for y ≤ 2.5786 and escapes after ~2.4 turns for y = 2.5787.
+	constexpr float orbitStartY = 2.5787f * kRs;
+	constexpr float orbitVx = 1.f; // Horizontal toward black hole
+	constexpr float orbitVy = 0.f;
+	rays.emplace_back(orbitStartX, orbitStartY, orbitVx, orbitVy, RayScenario::ORBITING, kOrbitingStartFrame);
+
+	// SCENARIO 2: Point source from top-left corner (25 rays)
+	constexpr float sourceX = -0.95f * viewWidth;  // 95% left for dramatic lensing
+	constexpr float sourceY = 0.85f * viewHeight;  // 85% up
+	constexpr int numPointRays = 25;
+	// Calculate direction from source to black hole
+	constexpr float toBlackHoleX = 0.f - sourceX;
+	constexpr float toBlackHoleY = 0.f - sourceY;
+	const float baseAngle{std::atan2(toBlackHoleY, toBlackHoleX)};
+
+	for (auto i = 0; i < numPointRays; ++i) {
+		// Spread rays in 60-degree cone around direction to black hole
+		constexpr float coneSpread = M_PI / 3.f;  // 60 degrees total (π/3 radians)
+		const float angleOffset = -coneSpread / 2.f + coneSpread * static_cast<float>(i) / static_cast<float>(numPointRays - 1);
+		const float angle = baseAngle + angleOffset;
+
+		// Calculate velocity components (all rays travel at speed c)
+		const float vx = std::cos(angle);
+		const float vy = std::sin(angle);
+
+		rays.emplace_back(sourceX, sourceY, vx, vy, RayScenario::POINT_SOURCE, kPointSourceStartFrame);
 	}
+
+	// SCENARIO 3: Parallel rays from left (70 rays)
+	constexpr int numParallelRays = 70;
+	// Left edge of the view. Must stay below kMaxDistance, otherwise
+	// the rays count as escaped right away and are never integrated.
+	constexpr float parallelStartX = -viewWidth;
+	static_assert(parallelStartX * parallelStartX + viewHeight * viewHeight < kMaxDistance * kMaxDistance,
+				  "Parallel rays must start inside kMaxDistance");
+	constexpr float parallelVx = 1.f; // Horizontal, rightward
+	constexpr float parallelVy = 0.f; // No vertical component
+
+	for (auto i = 0; i < numParallelRays; ++i) {
+		// Calculate interpolation parameter [0, 1]
+		const float t{static_cast<float>(i) / static_cast<float>(numParallelRays - 1)};
+
+		// Map to full viewport height: -viewHeight to +viewHeight
+		const float startY = -viewHeight + t * 2.f * viewHeight;
+
+		rays.emplace_back(parallelStartX, startY, parallelVx, parallelVy, RayScenario::PARALLEL, kParallelStartFrame);
+	}
+
+	int frame = 0;
 
 	// render loop
 	while (!glfwWindowShouldClose(window.get())) {
@@ -444,16 +527,26 @@ int main() {
 		constexpr float photonRadius = 1.5 * kRs;
 		drawDashedCircle(0.0f, 0.0f, photonRadius, 100);
 
-		for (auto& ray: rays) {
-			ray.integrate(0.05f, kMaxDistance);
+		// Mark the point source location (bright green) once its rays are active
+		if (frame >= kPointSourceStartFrame) {
+			glPointSize(8.0f);
+			glColor3f(0.5f, 1.0f, 0.0f);
+			glBegin(GL_POINTS);
+			glVertex2f(sourceX, sourceY);
+			glEnd();
 		}
-		drawRays(rays);
+
+		for (auto& ray: rays) {
+			ray.integrate(0.05f, kMaxDistance, frame);
+		}
+		drawRays(rays, frame);
 
 		// 3. swap buffers (double buffering)
 		glfwSwapBuffers(window.get());
 
 		// 4. Process the user input and window events
 		glfwPollEvents();
+		++frame;
 	}
 
 	return 0;
