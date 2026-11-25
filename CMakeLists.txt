@@ -11,7 +11,30 @@ find_package(glm CONFIG REQUIRED)
 
 set(DEPS glfw GLEW::GLEW glm::glm OpenGL::GL)
 
-add_executable(blackhole_simulator main.cpp)
+set(SOURCES
+		src/main.cpp
+		src/simulation.cpp
+		src/render.cpp
+		src/physics.cpp
+		src/ray.cpp
+		src/scene_renderer.cpp
+		src/starfield.cpp
+)
+
+set(HEADERS
+		src/constants.h
+		src/simulation.h
+		src/physics.h
+		src/render.h
+		src/ray.h
+		src/scene_renderer.h
+		src/starfield.h
+)
+
+add_executable(blackhole_simulator
+		${SOURCES}
+		${HEADERS}
+)
 
 target_link_libraries(blackhole_simulator PRIVATE ${DEPS})
 
