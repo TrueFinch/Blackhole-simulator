@@ -6,8 +6,8 @@
 
 #include <vector>
 
-#include "render.h"
-#include "starfield.h"
+#include "../render/render.h"
+#include "view/starfield.h"
 
 namespace SimulationModule {
 	class Simulation;

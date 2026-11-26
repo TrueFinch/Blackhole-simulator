@@ -2,13 +2,13 @@
 // Created by Vladimir Glushkov on 25.11.2026.
 //
 
-#include "scene_renderer.h"
+#include "view/scene_renderer.h"
 
 #include <algorithm>
 
-#include "constants.h"
-#include "ray.h"
-#include "simulation.h"
+#include "../core/constants.h"
+#include "../core/ray.h"
+#include "../core/simulation.h"
 
 namespace {
 

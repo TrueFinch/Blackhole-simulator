@@ -5,10 +5,10 @@
 #include <exception>
 #include <iostream>
 
-#include "constants.h"
-#include "render.h"
-#include "scene_renderer.h"
-#include "simulation.h"
+#include "core/constants.h"
+#include "render/render.h"
+#include "view/scene_renderer.h"
+#include "core/simulation.h"
 
 int main() {
 	using namespace RenderModule;

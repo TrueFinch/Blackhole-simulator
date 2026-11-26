@@ -7,8 +7,8 @@
 #include <vector>
 #include <glm/vec2.hpp>
 
-#include "constants.h"
-#include "ray.h"
+#include "core/constants.h"
+#include "core/ray.h"
 
 namespace SimulationModule {
 	// Core of the application: owns the simulated objects and advances them in time.

@@ -7,7 +7,7 @@
 #include <vector>
 #include <glm/vec2.hpp>
 
-#include "render.h"
+#include "../render/render.h"
 
 namespace ViewModule {
 	// Decorative twinkling background. Stars take no part in the physics,

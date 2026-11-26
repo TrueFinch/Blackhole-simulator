@@ -2,13 +2,13 @@
 // Created by Vladimir Glushkov on 25.11.2026.
 //
 
-#include "starfield.h"
+#include "view/starfield.h"
 
 #include <algorithm>
 #include <cmath>
 #include <random>
 
-#include "constants.h"
+#include "../core/constants.h"
 
 ViewModule::Starfield::Starfield(int count, float halfWidth, float halfHeight) {
 	std::random_device rd;

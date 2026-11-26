@@ -2,7 +2,7 @@
 // Created by Vladimir Glushkov on 24.11.2026.
 //
 
-#include "simulation.h"
+#include "core/simulation.h"
 
 #include <cmath>
 

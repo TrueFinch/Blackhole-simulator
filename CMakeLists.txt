@@ -13,39 +13,28 @@ set(DEPS glfw GLEW::GLEW glm::glm OpenGL::GL)
 
 include(FetchContent)
 
-# Pure simulation core: depends only on glm, never on OpenGL/GLFW/GLEW.
+# Pure simulation core: depends only on glm, never on OpenGL/GLFW/GLEW or TOML.
 add_library(blackhole_core STATIC
-		# sources
-		src/physics.cpp
-		src/ray.cpp
-		src/simulation.cpp
-		# headers
-		src/constants.h
-		src/physics.h
-		src/ray.h
-		src/simulation.h
+		src/core/constants.h
+		src/core/physics.cpp
+		src/core/physics.h
+		src/core/ray.cpp
+		src/core/ray.h
+		src/core/simulation.cpp
+		src/core/simulation.h
 )
 target_include_directories(blackhole_core PUBLIC src)
 target_link_libraries(blackhole_core PUBLIC glm::glm)
 
-set(SOURCES
-		src/main.cpp
-		src/render.cpp
-		src/scene_renderer.cpp
-		src/starfield.cpp
-)
-
-set(HEADERS
-		src/render.h
-		src/scene_renderer.h
-		src/starfield.h
-)
-
 add_executable(blackhole_simulator
-		${SOURCES}
-		${HEADERS}
+		src/app/main.cpp
+		src/render/render.cpp
+		src/render/render.h
+		src/view/scene_renderer.cpp
+		src/view/scene_renderer.h
+		src/view/starfield.cpp
+		src/view/starfield.h
 )
-
 target_link_libraries(blackhole_simulator PRIVATE blackhole_core ${DEPS})
 
 # Accuracy and performance comparison of the ray integrators (no OpenGL needed).
@@ -62,7 +51,10 @@ FetchContent_MakeAvailable(Catch2)
 
 enable_testing()
 add_executable(tests
-		tests/test_physics.cpp
+		tests/core/test_physics.cpp
+		tests/toml/test_toml_schema.cpp
+		tests/config/test_settings.cpp
 )
 target_link_libraries(tests PRIVATE blackhole_core Catch2::Catch2WithMain)
+target_compile_definitions(tests PRIVATE BLACKHOLE_DATA_DIR="${CMAKE_SOURCE_DIR}")
 add_test(NAME tests COMMAND tests)

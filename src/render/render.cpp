@@ -2,7 +2,7 @@
 // Created by Vladimir Glushkov on 25.11.2026.
 //
 
-#include "render.h"
+#include "render/render.h"
 
 #include <cmath>
 #include <iostream>
@@ -10,7 +10,7 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
-#include "constants.h"
+#include "core/constants.h"
 
 namespace {
 	glm::vec2 pointOnCircle(glm::vec2 center, float radius, int i, int segments) {

@@ -2,9 +2,9 @@
 // Created by Vladimir Glushkov on 25.11.2026.
 //
 
-#include "physics.h"
-#include "constants.h"
-#include "ray.h"
+#include "core/physics.h"
+#include "core/constants.h"
+#include "core/ray.h"
 
 float PhysicsModule::radialAcceleration(float r, float L) {
 	return L * L / (r * r * r) * (1.f - 1.5f * kRs / r);

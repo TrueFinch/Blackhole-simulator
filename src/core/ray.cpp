@@ -2,12 +2,12 @@
 // Created by Vladimir Glushkov on 25.11.2026.
 //
 
-#include "ray.h"
+#include "core/ray.h"
 
 #include <cmath>
 
-#include "constants.h"
-#include "physics.h"
+#include "core/constants.h"
+#include "core/physics.h"
 
 
 SimulationModule::Ray::Ray(float x, float y, float vx, float vy, RayScenario scenario,

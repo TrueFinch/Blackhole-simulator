@@ -1,10 +1,15 @@
+//
+// Created by Vladimir Glushkov on 26.11.2026.
+// Co-Authored-By: Claude Opus 5.5
+//
+
 #include <cmath>
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
-#include "constants.h"
-#include "ray.h"
+#include "core/constants.h"
+#include "core/ray.h"
 
 using Catch::Approx;
 using SimulationModule::Ray;
