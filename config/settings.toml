@@ -1,0 +1,17 @@
+[window]
+width = 800
+height = 600
+
+[world]
+half_width = 8.0        # видимая область гарантированно включает этот прямоугольник
+half_height = 6.0
+max_distance = 16.0     # дальше — луч считается улетевшим
+
+[simulation]
+dlambda = 0.05          # шаг аффинного параметра на шаг симуляции
+steps_per_second = 60   # фиксированный темп симуляции
+max_rays = 5000         # защитный предел живых лучей
+
+[view]
+stars = 200
+default_scenario = "classic"
