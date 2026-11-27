@@ -14,18 +14,13 @@
 #include "toml/io_error.h"
 
 namespace {
-	// Several startup errors are kept one per line
-	void addError(std::optional<std::string>& errors, const std::string& error) {
-		errors = errors ? *errors + '\n' + error : error;
-	}
-
 	SceneModule::Settings loadSettingsOrDefault(
 		const SceneModule::DataPaths& paths,
-		std::optional<std::string>& error
+		std::vector<std::string>& errors
 	) {
 		auto settings = SceneModule::loadSettings(paths.settings());
 		if (!settings) {
-			addError(error, SceneModule::formatError(settings.error()));
+			errors.push_back(SceneModule::formatError(settings.error()));
 			return {};
 		}
 		return std::move(*settings);
@@ -33,11 +28,11 @@ namespace {
 
 	SceneModule::StyleMap loadStylesOrEmpty(
 		const SceneModule::DataPaths& paths,
-		std::optional<std::string>& error
+		std::vector<std::string>& errors
 	) {
 		auto styles = SceneModule::loadStyles(paths.styles());
 		if (!styles) {
-			addError(error, SceneModule::formatError(styles.error()));
+			errors.push_back(SceneModule::formatError(styles.error()));
 			return {};
 		}
 		return std::move(*styles);
@@ -46,20 +41,11 @@ namespace {
 
 UiModule::AppController::AppController(SceneModule::DataPaths paths)
 	: m_paths(std::move(paths))
-	, m_settings(loadSettingsOrDefault(m_paths, m_lastError))
-	, m_styles(loadStylesOrEmpty(m_paths, m_lastError))
+	, m_settings(loadSettingsOrDefault(m_paths, m_configErrors))
+	, m_styles(loadStylesOrEmpty(m_paths, m_configErrors))
 	, m_simulation({}, m_styles, m_settings)
 	, m_clock(m_settings.simulation.stepsPerSecond) {
-	// A successful selectScenario clears lastError: keep the settings and styles errors
-	const std::optional<std::string> startupError = std::exchange(m_lastError, std::nullopt);
 	selectScenario(m_settings.view.defaultScenario);
-	if (startupError) {
-		std::optional<std::string> errors = startupError;
-		if (m_lastError) {
-			addError(errors, *m_lastError);
-		}
-		m_lastError = std::move(errors);
-	}
 }
 
 void UiModule::AppController::update(double frameSeconds) {

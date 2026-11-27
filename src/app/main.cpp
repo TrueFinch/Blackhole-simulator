@@ -28,6 +28,9 @@ int main(int argc, char** argv) {
 		// Problems with the data files are reported and the defaults used, so the window still opens.
 		UiModule::AppController controller(paths);
 		const SceneModule::Settings& settings = controller.settings();
+		for (const std::string& error: controller.configErrors()) {
+			std::cerr << error << '\n';
+		}
 		if (controller.lastError()) {
 			std::cerr << *controller.lastError() << '\n';
 		}

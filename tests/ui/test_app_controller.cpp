@@ -103,9 +103,23 @@ TEST_CASE("App Controller") {
 		write(data.paths.scenario("classic"), kCone); // the default scenario
 		AppController controller(data.paths);
 		CHECK(controller.currentScenario() == "classic");
-		REQUIRE(controller.lastError());
-		CHECK(controller.lastError()->find("settings.toml") != std::string::npos);
-		CHECK(controller.lastError()->find("styles.toml") != std::string::npos);
+		REQUIRE(controller.configErrors().size() == 2);
+		CHECK(controller.configErrors()[0].find("settings.toml") != std::string::npos);
+		CHECK(controller.configErrors()[1].find("styles.toml") != std::string::npos);
+		CHECK_FALSE(controller.lastError());
+	}
+
+	SECTION("Config load errors stay visible") {
+		TempData data;
+		write(data.paths.settings(), "[view\n");
+		write(data.paths.scenario("classic"), kCone); // the default scenario
+		AppController controller(data.paths);
+		REQUIRE(controller.configErrors().size() == 1);
+		CHECK(controller.configErrors()[0].find("settings.toml") != std::string::npos);
+		CHECK(controller.settings() == SceneModule::Settings{});
+		REQUIRE(controller.selectScenario("a"));
+		CHECK_FALSE(controller.lastError());
+		CHECK(controller.configErrors().size() == 1);
 	}
 
 	SECTION("Pause stops simulation steps") {

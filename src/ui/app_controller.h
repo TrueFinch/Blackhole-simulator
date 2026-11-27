@@ -17,7 +17,7 @@
 
 namespace UiModule {
 	// Application logic without GL/ImGui: owns the simulation, picks scenarios, controls time.
-	// Never throws on bad data files: errors go to lastError().
+	// Never throws on bad data files: errors go to configErrors() and lastError().
 	class AppController {
 	public:
 		explicit AppController(SceneModule::DataPaths paths);
@@ -72,9 +72,15 @@ namespace UiModule {
 			return m_warnings;
 		}
 
+		// settings.toml / styles.toml load errors from construction; never cleared
+		[[nodiscard]] const std::vector<std::string>& configErrors() const {
+			return m_configErrors;
+		}
+
 	private:
 		SceneModule::DataPaths m_paths;
 		// Declared before the loaded data: the constructor records load errors here
+		std::vector<std::string> m_configErrors;
 		std::optional<std::string> m_lastError;
 		SceneModule::Settings m_settings;
 		SceneModule::StyleMap m_styles;
