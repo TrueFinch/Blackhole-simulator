@@ -96,6 +96,16 @@ TEST_CASE("App Controller") {
 		CHECK(controller.simulation().scene().emitters.empty());
 	}
 
+	SECTION("Reload without a loaded scenario reports an error") {
+		TempData data;
+		write(data.paths.settings(), "[view]\ndefault_scenario = \"missing\"\n");
+		AppController controller(data.paths);
+		REQUIRE(controller.currentScenario().empty());
+		CHECK_FALSE(controller.reloadFromDisk());
+		REQUIRE(controller.lastError());
+		CHECK(*controller.lastError() == "Нет загруженного сценария");
+	}
+
 	SECTION("Broken settings and styles fall back to defaults and stay reported") {
 		TempData data;
 		write(data.paths.settings(), "[view\n");

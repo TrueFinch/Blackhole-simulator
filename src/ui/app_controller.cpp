@@ -90,6 +90,10 @@ void UiModule::AppController::restart() {
 }
 
 bool UiModule::AppController::reloadFromDisk() {
+	if (m_currentScenario.empty()) {
+		m_lastError = "Нет загруженного сценария";
+		return false;
+	}
 	return selectScenario(m_currentScenario);
 }
 

@@ -33,5 +33,8 @@ namespace UiModule {
 
 		// True while a widget wants keyboard input, so the app should not handle hotkeys
 		[[nodiscard]] bool wantsKeyboard() const;
+
+		// Smoothed frames per second
+		[[nodiscard]] float framerate() const;
 	};
 } // namespace UiModule

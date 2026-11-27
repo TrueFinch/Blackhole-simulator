@@ -7,12 +7,13 @@
 #include <string>
 
 #include <glm/gtc/matrix_transform.hpp>
-#include <imgui.h>
 
 #include "config/data_paths.h"
 #include "core/simulation.h"
 #include "render/render.h"
 #include "ui/app_controller.h"
+#include "ui/control_panel.h"
+#include "ui/hotkeys.h"
 #include "ui/imgui_layer.h"
 #include "ui/overlay.h"
 #include "view/scene_renderer.h"
@@ -57,12 +58,14 @@ int main(int argc, char** argv) {
 			engine.beginFrame(glm::ortho(-half.x, half.x, -half.y, half.y, -1.f, 1.f));
 			sceneRenderer.draw(engine, simulation, now);
 
-			const float fps = ImGui::GetIO().Framerate;
+			const float fps = imgui.framerate();
 			UiModule::drawOverlay({
 				fps, fps > 0.f ? 1000.f / fps : 0.f, simulation.stepIndex(), simulation.time(),
 				static_cast<int>(simulation.rays().size()), simulation.rayLimitHit()
 			});
 			UiModule::drawLabels(simulation.scene(), fit, fb);
+			UiModule::handleHotkeys(controller, imgui.wantsKeyboard());
+			UiModule::drawControlPanel(controller);
 			imgui.endFrame(); // before the swap
 			engine.endFrame();
 		}

@@ -23,8 +23,11 @@ UiModule::ImGuiLayer::ImGuiLayer(GLFWwindow* window, const std::filesystem::path
 
 	std::error_code ec;
 	if (std::filesystem::exists(fontPath, ec)) {
-		io.Fonts->AddFontFromFileTTF(fontPath.string().c_str(), kFontSize, nullptr,
-									io.Fonts->GetGlyphRangesCyrillic());
+		if (io.Fonts->AddFontFromFileTTF(fontPath.string().c_str(), kFontSize, nullptr,
+										io.Fonts->GetGlyphRangesCyrillic()) == nullptr) {
+			std::cerr << "Failed to load the UI font: " << fontPath.string() << ", using the default font\n";
+			io.Fonts->AddFontDefault();
+		}
 	} else {
 		std::cerr << "UI font not found: " << fontPath.string() << ", using the default font\n";
 		io.Fonts->AddFontDefault();
@@ -55,4 +58,8 @@ void UiModule::ImGuiLayer::endFrame() { // NOLINT(*-convert-member-functions-to-
 bool UiModule::ImGuiLayer::wantsKeyboard() const { // NOLINT(*-convert-member-functions-to-static)
 	const ImGuiIO& io = ImGui::GetIO();
 	return io.WantCaptureKeyboard || io.WantTextInput;
+}
+
+float UiModule::ImGuiLayer::framerate() const { // NOLINT(*-convert-member-functions-to-static)
+	return ImGui::GetIO().Framerate;
 }

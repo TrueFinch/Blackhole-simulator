@@ -47,7 +47,7 @@ target_link_libraries(imgui PUBLIC glfw OpenGL::GL)
 #   render/  OpenGL primitives
 #   view/    scene drawing: rays, black hole, starfield; its GL-free math (trail colors, view fit)
 #   ui/      application controller (GL-free, blackhole_app); Dear ImGui: context and backends, overlay,
-#            label texts
+#            label texts, control panel, hotkeys
 #   app/     entry point
 
 # Pure simulation core: depends only on glm, never on OpenGL/GLFW/GLEW or TOML.
@@ -124,6 +124,10 @@ add_executable(blackhole_simulator
 		src/ui/imgui_layer.h
 		src/ui/overlay.cpp
 		src/ui/overlay.h
+		src/ui/control_panel.cpp
+		src/ui/control_panel.h
+		src/ui/hotkeys.cpp
+		src/ui/hotkeys.h
 )
 target_link_libraries(blackhole_simulator PRIVATE blackhole_core blackhole_io blackhole_view blackhole_app imgui ${DEPS})
 # The font stays in the imgui sources, it is not copied into the repository.
