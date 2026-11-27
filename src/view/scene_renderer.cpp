@@ -25,7 +25,7 @@ namespace {
 } // namespace
 
 ViewModule::SceneRenderer::SceneRenderer(int starsCount, const SceneModule::WorldSettings& world)
-	: m_starfield(starsCount, world.halfWidth, world.halfHeight) {}
+	: m_starfield(starsCount, world.maxDistance) {}
 
 void ViewModule::SceneRenderer::draw(RenderModule::RenderEngine& engine,
                                      const SimulationModule::Simulation& simulation, float time) {
@@ -33,6 +33,7 @@ void ViewModule::SceneRenderer::draw(RenderModule::RenderEngine& engine,
 	m_starfield.draw(engine, time);
 	drawBlackHole(engine);
 	drawMarkers(engine, simulation);
+	drawLabels(engine, simulation);
 	drawRays(engine, simulation);
 }
 
@@ -85,4 +86,16 @@ void ViewModule::SceneRenderer::drawMarkers(RenderModule::RenderEngine& engine,
 		m_markers.push_back({pos, Color(simulation.styleOf(emitter.id).head, 1.f)});
 	}
 	engine.drawPoints(m_markers, kMarkerSize);
+}
+
+void ViewModule::SceneRenderer::drawLabels(RenderModule::RenderEngine& engine,
+                                           const SimulationModule::Simulation& simulation) {
+	using namespace RenderModule;
+	constexpr float kLabelMarkerSize = 6.f;
+
+	m_labelMarkers.clear();
+	for (const auto& label: simulation.scene().labels) {
+		m_labelMarkers.push_back({label.pos, Color(label.color, 1.f)});
+	}
+	engine.drawPoints(m_labelMarkers, kLabelMarkerSize);
 }

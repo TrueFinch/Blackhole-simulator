@@ -6,6 +6,8 @@
 #include <iostream>
 #include <utility>
 
+#include <glm/gtc/matrix_transform.hpp>
+
 #include "config/data_paths.h"
 #include "config/settings_io.h"
 #include "core/fixed_step_clock.h"
@@ -13,6 +15,7 @@
 #include "render/render.h"
 #include "scene/scene_io.h"
 #include "view/scene_renderer.h"
+#include "view/view_fit.h"
 
 namespace {
 	// Problems with the data files are reported and the defaults used, so the window still opens.
@@ -69,7 +72,10 @@ int main(int argc, char** argv) {
 				simulation.step();
 			}
 
-			engine.beginFrame(settings.world.halfWidth, settings.world.halfHeight);
+			const glm::ivec2 fb = engine.framebufferSize();
+			const glm::vec2 half =
+				fitView(fb.x, fb.y, {settings.world.halfWidth, settings.world.halfHeight}).halfExtents;
+			engine.beginFrame(glm::ortho(-half.x, half.x, -half.y, half.y, -1.f, 1.f));
 			sceneRenderer.draw(engine, simulation, now);
 			engine.endFrame();
 		}

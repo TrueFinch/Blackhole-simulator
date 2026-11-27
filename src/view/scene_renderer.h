@@ -29,6 +29,7 @@ namespace ViewModule {
 		// Reused every frame to avoid reallocations
 		std::vector<RenderModule::ColoredPoint> m_rayHeads;
 		std::vector<RenderModule::ColoredPoint> m_markers;
+		std::vector<RenderModule::ColoredPoint> m_labelMarkers;
 		std::vector<RenderModule::ColoredPoint> m_trailVertices;
 
 		static void drawBlackHole(RenderModule::RenderEngine& engine);
@@ -36,5 +37,8 @@ namespace ViewModule {
 		void drawRays(RenderModule::RenderEngine& engine, const SimulationModule::Simulation& simulation);
 
 		void drawMarkers(RenderModule::RenderEngine& engine, const SimulationModule::Simulation& simulation);
+
+		// Anchor points of the labels; their text is drawn separately
+		void drawLabels(RenderModule::RenderEngine& engine, const SimulationModule::Simulation& simulation);
 	};
 } // namespace ViewModule

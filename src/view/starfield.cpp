@@ -10,12 +10,12 @@
 
 #include "../core/constants.h"
 
-ViewModule::Starfield::Starfield(int count, float halfWidth, float halfHeight) {
+ViewModule::Starfield::Starfield(int count, float extent) {
 	std::random_device rd;
 	std::mt19937 gen(rd());
 
-	std::uniform_real_distribution<float> distX(-halfWidth, halfWidth);
-	std::uniform_real_distribution<float> distY(-halfHeight, halfHeight);
+	std::uniform_real_distribution<float> distX(-extent, extent);
+	std::uniform_real_distribution<float> distY(-extent, extent);
 
 	std::uniform_real_distribution baseBrightness(0.5f, 0.9f);
 	std::uniform_real_distribution amplitude(0.05f, 0.2f);

@@ -26,7 +26,7 @@ FetchContent_MakeAvailable(tomlplusplus)
 #   config/  reading and writing config/settings.toml, where the data files live
 #   scene/   reading and writing scenario and style files (scenarios/*.toml, config/styles.toml)
 #   render/  OpenGL primitives
-#   view/    scene drawing: rays, black hole, starfield; its GL-free math (trail colors)
+#   view/    scene drawing: rays, black hole, starfield; its GL-free math (trail colors, view fit)
 #   app/     entry point
 
 # Pure simulation core: depends only on glm, never on OpenGL/GLFW/GLEW or TOML.
@@ -77,6 +77,8 @@ target_compile_definitions(blackhole_io PUBLIC BLACKHOLE_DATA_DIR="${CMAKE_SOURC
 add_library(blackhole_view STATIC
 		src/view/trail_color.cpp
 		src/view/trail_color.h
+		src/view/view_fit.cpp
+		src/view/view_fit.h
 )
 target_include_directories(blackhole_view PUBLIC src)
 target_link_libraries(blackhole_view PUBLIC blackhole_core)
@@ -117,6 +119,7 @@ add_executable(tests
 		tests/scene/test_scene_io.cpp
 		tests/scene/test_data_files.cpp
 		tests/view/test_trail_color.cpp
+		tests/view/test_view_fit.cpp
 )
 target_link_libraries(tests PRIVATE blackhole_core blackhole_io blackhole_view Catch2::Catch2WithMain)
 add_test(NAME tests COMMAND tests)

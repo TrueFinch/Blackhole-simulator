@@ -7,6 +7,7 @@
 #include <memory>
 #include <span>
 #include <string_view>
+#include <glm/mat4x4.hpp>
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
@@ -38,8 +39,11 @@ namespace RenderModule {
 
 		~RenderEngine();
 
-		// Clear the screen and map [-halfWidth, halfWidth] x [-halfHeight, halfHeight] onto the window
-		void beginFrame(float halfWidth, float halfHeight);
+		// Clear the screen and use the projection to map world coordinates onto the window
+		void beginFrame(const glm::mat4& projection);
+
+		// Current framebuffer size in pixels, kept up to date by the resize callback
+		[[nodiscard]] glm::ivec2 framebufferSize() const { return m_framebufferSize; }
 
 		// Swap buffers and poll events
 		void endFrame() const;
@@ -83,5 +87,6 @@ namespace RenderModule {
 		// Do not change order
 		GlfwContext m_glfw;
 		std::unique_ptr<GLFWwindow, void(*)(GLFWwindow*)> m_window;
+		glm::ivec2 m_framebufferSize{0};
 	};
 } // namespace RenderModule

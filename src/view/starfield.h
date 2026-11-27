@@ -14,7 +14,8 @@ namespace ViewModule {
 	// so they live entirely in the view layer.
 	class Starfield {
 	public:
-		Starfield(int count, float halfWidth, float halfHeight);
+		// Stars fill the square [-extent, extent]^2, so they also cover the extra space of a stretched window
+		Starfield(int count, float extent);
 
 		void draw(RenderModule::RenderEngine& engine, float time);
 

@@ -63,9 +63,15 @@ RenderModule::RenderEngine::RenderEngine(int width, int height, std::string_view
 	}
 
 	// Sets the rendering area within the window
-	int fbWidth, fbHeight;
-	glfwGetFramebufferSize(m_window.get(), &fbWidth, &fbHeight);
-	glViewport(0, 0, fbWidth, fbHeight);
+	glfwGetFramebufferSize(m_window.get(), &m_framebufferSize.x, &m_framebufferSize.y);
+	glViewport(0, 0, m_framebufferSize.x, m_framebufferSize.y);
+	// Follow window resizes; the engine is neither copyable nor movable, so `this` stays valid
+	glfwSetWindowUserPointer(m_window.get(), this);
+	glfwSetFramebufferSizeCallback(m_window.get(), [](GLFWwindow* window, int width, int height) {
+		auto* self = static_cast<RenderEngine*>(glfwGetWindowUserPointer(window));
+		self->m_framebufferSize = {width, height};
+		glViewport(0, 0, width, height);
+	});
 
 	// todo move parameter to settings
 	// Enable visual polish features (GL_LINE_SMOOTH, GL_BLEND, GL_NICEST hint)
@@ -80,16 +86,15 @@ RenderModule::RenderEngine::RenderEngine(int width, int height, std::string_view
 
 RenderModule::RenderEngine::~RenderEngine() = default;
 
-void RenderModule::RenderEngine::beginFrame(float halfWidth, float halfHeight) { // NOLINT(*-convert-member-functions-to-static)
+void RenderModule::RenderEngine::beginFrame(const glm::mat4& projection) { // NOLINT(*-convert-member-functions-to-static)
 	// Clear screen with the background color
 	glClearColor(kBackgroundColor.r, kBackgroundColor.g, kBackgroundColor.b, kBackgroundColor.a);
 	glClear(GL_COLOR_BUFFER_BIT);
 
-	// todo glMatrixMode, glOrtho, glBegin/glVertex/glColor is legacy API -> replace later
+	// todo glMatrixMode, glLoadMatrixf, glBegin/glVertex/glColor is legacy API -> replace later
 	// Map world coordinates onto the viewport
 	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	glOrtho(-halfWidth, halfWidth, -halfHeight, halfHeight, -1.0, 1.0);
+	glLoadMatrixf(&projection[0][0]);
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 }
