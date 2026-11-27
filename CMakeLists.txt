@@ -57,6 +57,8 @@ add_library(blackhole_io STATIC
 		src/toml/toml_schema.h
 		src/toml/toml_util.cpp
 		src/toml/toml_util.h
+		src/config/data_paths.cpp
+		src/config/data_paths.h
 		src/config/settings_io.cpp
 		src/config/settings_io.h
 		src/scene/scene_io.cpp
@@ -100,6 +102,7 @@ add_executable(tests
 		tests/core/test_fixed_step_clock.cpp
 		tests/core/test_physics.cpp
 		tests/toml/test_toml_schema.cpp
+		tests/config/test_data_paths.cpp
 		tests/config/test_settings.cpp
 		tests/scene/test_scene_io.cpp
 		tests/scene/test_data_files.cpp
