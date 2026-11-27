@@ -20,6 +20,25 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(tomlplusplus)
 
+FetchContent_Declare(
+		imgui
+		GIT_REPOSITORY https://github.com/ocornut/imgui
+		GIT_TAG v1.91.5
+)
+FetchContent_MakeAvailable(imgui)
+
+# Dear ImGui has no CMake of its own: build the core and the GLFW + OpenGL2 backends.
+add_library(imgui STATIC
+		${imgui_SOURCE_DIR}/imgui.cpp
+		${imgui_SOURCE_DIR}/imgui_draw.cpp
+		${imgui_SOURCE_DIR}/imgui_tables.cpp
+		${imgui_SOURCE_DIR}/imgui_widgets.cpp
+		${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
+		${imgui_SOURCE_DIR}/backends/imgui_impl_opengl2.cpp
+)
+target_include_directories(imgui PUBLIC ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/backends)
+target_link_libraries(imgui PUBLIC glfw OpenGL::GL)
+
 # src/ layout (includes are written relative to src/, e.g. "core/ray.h"):
 #   core/    physics, rays, simulation, emitters; scene description and settings data — glm only
 #   toml/    generic TOML layer: IoError, helpers, field schemas
@@ -27,6 +46,7 @@ FetchContent_MakeAvailable(tomlplusplus)
 #   scene/   reading and writing scenario and style files (scenarios/*.toml, config/styles.toml)
 #   render/  OpenGL primitives
 #   view/    scene drawing: rays, black hole, starfield; its GL-free math (trail colors, view fit)
+#   ui/      Dear ImGui: context and backends, overlay, label texts
 #   app/     entry point
 
 # Pure simulation core: depends only on glm, never on OpenGL/GLFW/GLEW or TOML.
@@ -91,8 +111,15 @@ add_executable(blackhole_simulator
 		src/view/scene_renderer.h
 		src/view/starfield.cpp
 		src/view/starfield.h
+		src/ui/imgui_layer.cpp
+		src/ui/imgui_layer.h
+		src/ui/overlay.cpp
+		src/ui/overlay.h
 )
-target_link_libraries(blackhole_simulator PRIVATE blackhole_core blackhole_io blackhole_view ${DEPS})
+target_link_libraries(blackhole_simulator PRIVATE blackhole_core blackhole_io blackhole_view imgui ${DEPS})
+# The font stays in the imgui sources, it is not copied into the repository.
+target_compile_definitions(blackhole_simulator PRIVATE
+		BLACKHOLE_FONT_PATH="${imgui_SOURCE_DIR}/misc/fonts/Roboto-Medium.ttf")
 
 # Accuracy and performance comparison of the ray integrators (no OpenGL needed).
 # Build it in Release for meaningful timings.

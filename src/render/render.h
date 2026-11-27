@@ -45,6 +45,9 @@ namespace RenderModule {
 		// Current framebuffer size in pixels, kept up to date by the resize callback
 		[[nodiscard]] glm::ivec2 framebufferSize() const { return m_framebufferSize; }
 
+		// Native window handle, for attaching UI backends
+		[[nodiscard]] GLFWwindow* nativeWindow() const { return m_window.get(); }
+
 		// Swap buffers and poll events
 		void endFrame() const;
 

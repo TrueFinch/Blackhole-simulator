@@ -4,6 +4,8 @@
 
 #include "view/scene_renderer.h"
 
+#include <algorithm>
+#include <cmath>
 #include <glm/glm.hpp>
 
 #include "core/constants.h"
@@ -22,10 +24,18 @@ namespace {
 	glm::vec2 markerPosition(const SceneModule::LineShape& line) {
 		return (line.from + line.to) * 0.5f;
 	}
+
+	// settings.view.stars is the density: the number of stars inside the world rectangle.
+	// The starfield covers the larger square [-maxDistance, maxDistance]^2, so scale the count by area.
+	int starCountForDensity(int starsInWorld, const SceneModule::WorldSettings& world) {
+		const float squareArea = 4.f * world.maxDistance * world.maxDistance;
+		const float worldArea = 4.f * world.halfWidth * world.halfHeight;
+		return std::max(0, static_cast<int>(std::lround(static_cast<float>(starsInWorld) * squareArea / worldArea)));
+	}
 } // namespace
 
 ViewModule::SceneRenderer::SceneRenderer(int starsCount, const SceneModule::WorldSettings& world)
-	: m_starfield(starsCount, world.maxDistance) {}
+	: m_starfield(starCountForDensity(starsCount, world), world.maxDistance) {}
 
 void ViewModule::SceneRenderer::draw(RenderModule::RenderEngine& engine,
                                      const SimulationModule::Simulation& simulation, float time) {
