@@ -32,6 +32,8 @@ FetchContent_MakeAvailable(tomlplusplus)
 # Pure simulation core: depends only on glm, never on OpenGL/GLFW/GLEW or TOML.
 add_library(blackhole_core STATIC
 		src/core/constants.h
+		src/core/emitter.cpp
+		src/core/emitter.h
 		src/core/physics.cpp
 		src/core/physics.h
 		src/core/ray.cpp
@@ -92,6 +94,7 @@ FetchContent_MakeAvailable(Catch2)
 
 enable_testing()
 add_executable(tests
+		tests/core/test_emitter.cpp
 		tests/core/test_physics.cpp
 		tests/toml/test_toml_schema.cpp
 		tests/config/test_settings.cpp
