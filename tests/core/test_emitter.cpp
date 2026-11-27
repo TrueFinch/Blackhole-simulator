@@ -100,3 +100,13 @@ TEST_CASE("Emitter schedule in steps") {
 	CHECK(toSteps(Seconds{-2.f}, 60) == 0);
 	CHECK(toSteps(Seconds{0.026f}, 60) == 2); // 1.56 steps rounds to 2
 }
+
+TEST_CASE("Fade steps of a style") {
+	Style style;
+	CHECK_FALSE(fadeSteps(style, 60).has_value());
+	style.fade = Seconds{0.5f};
+	CHECK(fadeSteps(style, 60) == 30);
+	// Shorter than a step still fades
+	style.fade = Seconds{0.001f};
+	CHECK(fadeSteps(style, 60) == 1);
+}

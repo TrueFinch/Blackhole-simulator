@@ -55,6 +55,9 @@ namespace SimulationModule {
 		// Whether a volley was skipped on the last step because of maxRays
 		[[nodiscard]] bool rayLimitHit() const { return m_rayLimitHit; }
 
+		// Trail fade in steps of the emitter's style (nullopt = never); see SimulationModule::fadeSteps
+		[[nodiscard]] std::optional<int> fadeStepsOf(int emitterId) const;
+
 	private:
 		SceneModule::SceneDescription m_scene;
 		SceneModule::StyleMap m_sharedStyles;
@@ -71,8 +74,6 @@ namespace SimulationModule {
 		void resetSchedule();
 
 		void updateFadeSteps();
-
-		[[nodiscard]] std::optional<int> fadeStepsOf(int emitterId) const;
 
 		void fire(const SceneModule::EmitterDesc& emitter);
 

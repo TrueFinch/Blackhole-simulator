@@ -63,9 +63,8 @@ namespace RenderModule {
 
 		void drawPoints(std::span<const ColoredPoint> points, float size);
 
-		// Polyline whose alpha goes linearly from alphaStart (first vertex) to alphaEnd (last vertex)
-		void drawFadingLineStrip(std::span<const glm::vec2> vertices, const glm::vec3& rgb, float alphaStart,
-								float alphaEnd, float lineWidth);
+		// Polyline with a color per vertex (interpolated along the segments)
+		void drawLineStrip(std::span<const ColoredPoint> vertices, float lineWidth);
 
 	private:
 		static constexpr Color kBackgroundColor{0.06f, 0.06f, 0.08f, 1.0f};

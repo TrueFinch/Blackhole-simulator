@@ -108,11 +108,7 @@ void SimulationModule::Simulation::resetSchedule() {
 void SimulationModule::Simulation::updateFadeSteps() {
 	m_fadeSteps.clear();
 	for (const SceneModule::EmitterDesc& emitter: m_scene.emitters) {
-		const std::optional<SceneModule::Seconds> fade = styleOf(emitter.id).fade;
-		// A fade shorter than a step still fades (after one step)
-		m_fadeSteps[emitter.id] = fade
-			                          ? std::optional{std::max(1, toSteps(*fade, m_settings.simulation.stepsPerSecond))}
-			                          : std::nullopt;
+		m_fadeSteps[emitter.id] = fadeSteps(styleOf(emitter.id), m_settings.simulation.stepsPerSecond);
 	}
 }
 

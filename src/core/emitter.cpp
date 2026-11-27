@@ -63,6 +63,13 @@ namespace SimulationModule {
 		return std::max(0, static_cast<int>(std::lround(time.count() * static_cast<float>(stepsPerSecond))));
 	}
 
+	std::optional<int> fadeSteps(const SceneModule::Style& style, int stepsPerSecond) {
+		if (!style.fade) {
+			return std::nullopt;
+		}
+		return std::max(1, toSteps(*style.fade, stepsPerSecond));
+	}
+
 	int startStep(const SceneModule::EmitterDesc& emitter, int stepsPerSecond) {
 		return toSteps(emitter.start, stepsPerSecond);
 	}

@@ -24,6 +24,10 @@ namespace SimulationModule {
 	// Simulation time to steps: rounded to the nearest step, never negative.
 	[[nodiscard]] int toSteps(SceneModule::Seconds time, int stepsPerSecond);
 
+	// Steps until a trail point of this style vanishes; nullopt = never (no fade).
+	// A fade shorter than a step still fades: at least one step.
+	[[nodiscard]] std::optional<int> fadeSteps(const SceneModule::Style& style, int stepsPerSecond);
+
 	// Step of the first volley.
 	[[nodiscard]] int startStep(const SceneModule::EmitterDesc& emitter, int stepsPerSecond);
 

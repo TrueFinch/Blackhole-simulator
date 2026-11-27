@@ -166,18 +166,15 @@ void RenderModule::RenderEngine::drawPoints(std::span<const ColoredPoint> points
 	glEnd();
 }
 
-void RenderModule::RenderEngine::drawFadingLineStrip(std::span<const glm::vec2> vertices, const glm::vec3& rgb,
-													float alphaStart, float alphaEnd, float lineWidth) {
-	const auto n = vertices.size();
-	if (n < 2) {
+void RenderModule::RenderEngine::drawLineStrip(std::span<const ColoredPoint> vertices, float lineWidth) { // NOLINT(*-convert-member-functions-to-static)
+	if (vertices.size() < 2) {
 		return;
 	}
 	glLineWidth(lineWidth);
 	glBegin(GL_LINE_STRIP);
-	for (std::size_t i = 0; i < n; ++i) {
-		const auto t = static_cast<float>(i) / static_cast<float>(n - 1);
-		glColor4f(rgb.r, rgb.g, rgb.b, alphaStart + (alphaEnd - alphaStart) * t);
-		glVertex2f(vertices[i].x, vertices[i].y);
+	for (const auto& [pos, color]: vertices) {
+		setColor(color);
+		glVertex2f(pos.x, pos.y);
 	}
 	glEnd();
 }

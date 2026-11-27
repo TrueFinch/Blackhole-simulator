@@ -4,12 +4,11 @@
 
 #include "view/scene_renderer.h"
 
-#include <algorithm>
-
 #include <glm/glm.hpp>
 
 #include "core/constants.h"
 #include "core/simulation.h"
+#include "view/trail_color.h"
 
 namespace {
 	constexpr RenderModule::Color kEventHorizonColor{0.0f, 0.0f, 0.0f, 1.0f};
@@ -49,22 +48,21 @@ void ViewModule::SceneRenderer::drawBlackHole(RenderModule::RenderEngine& engine
 void ViewModule::SceneRenderer::drawRays(RenderModule::RenderEngine& engine,
                                          const SimulationModule::Simulation& simulation) {
 	using namespace RenderModule;
-	// Trails fade from the oldest point to the newest
-	constexpr float kTrailAlphaStart = 0.2f;
-	constexpr float kTrailAlphaEnd = 1.0f;
 	constexpr float kHeadSize = 3.f;
 
 	m_rayHeads.clear();
 	for (const auto& ray: simulation.rays()) {
 		const SceneModule::Style& style = simulation.styleOf(ray.emitterId);
-		// The whole trail takes the color of the current deflection (0..π)
-		const float t = std::min(1.f, ray.deflection / PhysicsModule::kPi);
-		const glm::vec3 trailColor = glm::mix(style.trailFrom, style.trailTo, t);
-		m_trailPositions.clear();
+		const std::optional<int> fadeSteps = simulation.fadeStepsOf(ray.emitterId);
+		// Every point has its own color (by its deflection) and alpha (by its age)
+		m_trailVertices.clear();
+		std::size_t index = 0;
 		for (const auto& point: ray.trail) {
-			m_trailPositions.push_back(point.pos);
+			const int age = simulation.stepIndex() - point.step;
+			m_trailVertices.push_back(
+				{point.pos, trailPointColor(style, point.deflection, age, fadeSteps, index++, ray.trail.size())});
 		}
-		engine.drawFadingLineStrip(m_trailPositions, trailColor, kTrailAlphaStart, kTrailAlphaEnd, style.width);
+		engine.drawLineStrip(m_trailVertices, style.width);
 		if (!ray.trail.empty() && !ray.isCaptured()) {
 			m_rayHeads.push_back({ray.trail.back().pos, Color(style.head, 1.f)});
 		}

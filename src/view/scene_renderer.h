@@ -29,7 +29,7 @@ namespace ViewModule {
 		// Reused every frame to avoid reallocations
 		std::vector<RenderModule::ColoredPoint> m_rayHeads;
 		std::vector<RenderModule::ColoredPoint> m_markers;
-		std::vector<glm::vec2> m_trailPositions;
+		std::vector<RenderModule::ColoredPoint> m_trailVertices;
 
 		static void drawBlackHole(RenderModule::RenderEngine& engine);
 

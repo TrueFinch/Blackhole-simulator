@@ -26,7 +26,7 @@ FetchContent_MakeAvailable(tomlplusplus)
 #   config/  reading and writing config/settings.toml, where the data files live
 #   scene/   reading and writing scenario and style files (scenarios/*.toml, config/styles.toml)
 #   render/  OpenGL primitives
-#   view/    scene drawing: rays, black hole, starfield
+#   view/    scene drawing: rays, black hole, starfield; its GL-free math (trail colors)
 #   app/     entry point
 
 # Pure simulation core: depends only on glm, never on OpenGL/GLFW/GLEW or TOML.
@@ -73,6 +73,14 @@ target_compile_definitions(blackhole_io PUBLIC TOML_FLOAT_CHARCONV=1)
 # Root directory that holds config/ and scenarios/.
 target_compile_definitions(blackhole_io PUBLIC BLACKHOLE_DATA_DIR="${CMAKE_SOURCE_DIR}")
 
+# GL-free part of the view layer (colors, projection math), so it can be tested without a window.
+add_library(blackhole_view STATIC
+		src/view/trail_color.cpp
+		src/view/trail_color.h
+)
+target_include_directories(blackhole_view PUBLIC src)
+target_link_libraries(blackhole_view PUBLIC blackhole_core)
+
 add_executable(blackhole_simulator
 		src/app/main.cpp
 		src/render/render.cpp
@@ -82,7 +90,7 @@ add_executable(blackhole_simulator
 		src/view/starfield.cpp
 		src/view/starfield.h
 )
-target_link_libraries(blackhole_simulator PRIVATE blackhole_core blackhole_io ${DEPS})
+target_link_libraries(blackhole_simulator PRIVATE blackhole_core blackhole_io blackhole_view ${DEPS})
 
 # Accuracy and performance comparison of the ray integrators (no OpenGL needed).
 # Build it in Release for meaningful timings.
@@ -108,6 +116,7 @@ add_executable(tests
 		tests/config/test_settings.cpp
 		tests/scene/test_scene_io.cpp
 		tests/scene/test_data_files.cpp
+		tests/view/test_trail_color.cpp
 )
-target_link_libraries(tests PRIVATE blackhole_core blackhole_io Catch2::Catch2WithMain)
+target_link_libraries(tests PRIVATE blackhole_core blackhole_io blackhole_view Catch2::Catch2WithMain)
 add_test(NAME tests COMMAND tests)
