@@ -4,64 +4,36 @@
 
 #include <exception>
 #include <iostream>
-#include <utility>
+#include <string>
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <imgui.h>
 
 #include "config/data_paths.h"
-#include "config/settings_io.h"
-#include "core/fixed_step_clock.h"
 #include "core/simulation.h"
 #include "render/render.h"
-#include "scene/scene_io.h"
+#include "ui/app_controller.h"
 #include "ui/imgui_layer.h"
 #include "ui/overlay.h"
 #include "view/scene_renderer.h"
 #include "view/view_fit.h"
 
-namespace {
-	// Problems with the data files are reported and the defaults used, so the window still opens.
-
-	SceneModule::Settings loadSettingsOrDefault(const SceneModule::DataPaths& paths) {
-		auto settings = SceneModule::loadSettings(paths.settings());
-		if (!settings) {
-			std::cerr << SceneModule::formatError(settings.error()) << '\n';
-			return {};
-		}
-		return std::move(*settings);
-	}
-
-	SceneModule::StyleMap loadStylesOrEmpty(const SceneModule::DataPaths& paths) {
-		auto styles = SceneModule::loadStyles(paths.styles());
-		if (!styles) {
-			std::cerr << SceneModule::formatError(styles.error()) << '\n';
-			return {};
-		}
-		return std::move(*styles);
-	}
-
-	SceneModule::SceneDescription loadSceneOrEmpty(const SceneModule::DataPaths& paths,
-													const SceneModule::Settings& settings) {
-		auto loaded = SceneModule::loadScene(paths.scenario(settings.view.defaultScenario), settings.world);
-		if (!loaded) {
-			std::cerr << SceneModule::formatError(loaded.error()) << '\n';
-			return {};
-		}
-		return std::move(loaded->scene);
-	}
-} // namespace
-
 int main(int argc, char** argv) {
 	using namespace RenderModule;
-	using namespace SimulationModule;
+	using SimulationModule::Simulation;
 	using namespace ViewModule;
 
 	try {
 		const SceneModule::DataPaths paths = SceneModule::dataPathsFromArgs(argc, argv);
-		const SceneModule::Settings settings = loadSettingsOrDefault(paths);
-		Simulation simulation(loadSceneOrEmpty(paths, settings), loadStylesOrEmpty(paths), settings);
-		FixedStepClock clock(settings.simulation.stepsPerSecond);
+		// Problems with the data files are reported and the defaults used, so the window still opens.
+		UiModule::AppController controller(paths);
+		const SceneModule::Settings& settings = controller.settings();
+		if (controller.lastError()) {
+			std::cerr << *controller.lastError() << '\n';
+		}
+		for (const std::string& warning: controller.warnings()) {
+			std::cerr << warning << '\n';
+		}
 
 		RenderEngine engine(settings.window.width, settings.window.height, "2D Black Hole Simulator");
 		UiModule::ImGuiLayer imgui(engine.nativeWindow(), BLACKHOLE_FONT_PATH);
@@ -72,9 +44,8 @@ int main(int argc, char** argv) {
 			const float now = RenderEngine::time();
 			const double frameSeconds = now - previousTime;
 			previousTime = now;
-			for (int i = clock.advance(frameSeconds); i > 0; --i) {
-				simulation.step();
-			}
+			controller.update(frameSeconds);
+			const Simulation& simulation = controller.simulation();
 
 			const glm::ivec2 fb = engine.framebufferSize();
 			const ViewFit fit = fitView(fb.x, fb.y, {settings.world.halfWidth, settings.world.halfHeight});

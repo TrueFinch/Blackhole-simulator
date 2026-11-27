@@ -46,7 +46,8 @@ target_link_libraries(imgui PUBLIC glfw OpenGL::GL)
 #   scene/   reading and writing scenario and style files (scenarios/*.toml, config/styles.toml)
 #   render/  OpenGL primitives
 #   view/    scene drawing: rays, black hole, starfield; its GL-free math (trail colors, view fit)
-#   ui/      Dear ImGui: context and backends, overlay, label texts
+#   ui/      application controller (GL-free, blackhole_app); Dear ImGui: context and backends, overlay,
+#            label texts
 #   app/     entry point
 
 # Pure simulation core: depends only on glm, never on OpenGL/GLFW/GLEW or TOML.
@@ -103,6 +104,14 @@ add_library(blackhole_view STATIC
 target_include_directories(blackhole_view PUBLIC src)
 target_link_libraries(blackhole_view PUBLIC blackhole_core)
 
+# Application logic (scenarios, time control) without OpenGL or ImGui, so it can be tested.
+add_library(blackhole_app STATIC
+		src/ui/app_controller.cpp
+		src/ui/app_controller.h
+)
+target_include_directories(blackhole_app PUBLIC src)
+target_link_libraries(blackhole_app PUBLIC blackhole_core blackhole_io)
+
 add_executable(blackhole_simulator
 		src/app/main.cpp
 		src/render/render.cpp
@@ -116,7 +125,7 @@ add_executable(blackhole_simulator
 		src/ui/overlay.cpp
 		src/ui/overlay.h
 )
-target_link_libraries(blackhole_simulator PRIVATE blackhole_core blackhole_io blackhole_view imgui ${DEPS})
+target_link_libraries(blackhole_simulator PRIVATE blackhole_core blackhole_io blackhole_view blackhole_app imgui ${DEPS})
 # The font stays in the imgui sources, it is not copied into the repository.
 target_compile_definitions(blackhole_simulator PRIVATE
 		BLACKHOLE_FONT_PATH="${imgui_SOURCE_DIR}/misc/fonts/Roboto-Medium.ttf")
@@ -147,6 +156,7 @@ add_executable(tests
 		tests/scene/test_data_files.cpp
 		tests/view/test_trail_color.cpp
 		tests/view/test_view_fit.cpp
+		tests/ui/test_app_controller.cpp
 )
-target_link_libraries(tests PRIVATE blackhole_core blackhole_io blackhole_view Catch2::Catch2WithMain)
+target_link_libraries(tests PRIVATE blackhole_core blackhole_io blackhole_view blackhole_app Catch2::Catch2WithMain)
 add_test(NAME tests COMMAND tests)
