@@ -15,8 +15,8 @@ namespace {
 
 void UiModule::drawOverlay(const FrameStats& stats) {
 	constexpr ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
-									   ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
-									   ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove;
+										ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
+										ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove;
 	ImGui::SetNextWindowPos({kOverlayMargin, kOverlayMargin});
 	ImGui::SetNextWindowBgAlpha(kOverlayAlpha);
 	if (ImGui::Begin("##overlay", nullptr, flags)) {
@@ -33,14 +33,16 @@ void UiModule::drawOverlay(const FrameStats& stats) {
 }
 
 void UiModule::drawLabels(const SceneModule::SceneDescription& scene, const ViewModule::ViewFit& fit,
-						  glm::ivec2 fb) {
+						glm::ivec2 fb) {
 	const ImGuiIO& io = ImGui::GetIO();
 	ImDrawList* drawList = ImGui::GetForegroundDrawList();
 	for (const auto& label: scene.labels) {
 		// worldToScreen is in framebuffer pixels, ImGui works in display coordinates
 		const glm::vec2 px = ViewModule::worldToScreen(label.pos, fit, fb.x, fb.y);
-		const ImVec2 pos{px.x / io.DisplayFramebufferScale.x + kLabelOffset.x,
-						 px.y / io.DisplayFramebufferScale.y + kLabelOffset.y};
+		const ImVec2 pos{
+			px.x / io.DisplayFramebufferScale.x + kLabelOffset.x,
+			px.y / io.DisplayFramebufferScale.y + kLabelOffset.y
+		};
 		const ImU32 color = ImGui::ColorConvertFloat4ToU32({label.color.r, label.color.g, label.color.b, 1.f});
 		drawList->AddText(pos, color, label.text.c_str());
 	}

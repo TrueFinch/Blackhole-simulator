@@ -42,7 +42,7 @@ namespace {
 	}
 
 	SceneModule::SceneDescription loadSceneOrEmpty(const SceneModule::DataPaths& paths,
-	                                               const SceneModule::Settings& settings) {
+													const SceneModule::Settings& settings) {
 		auto loaded = SceneModule::loadScene(paths.scenario(settings.view.defaultScenario), settings.world);
 		if (!loaded) {
 			std::cerr << SceneModule::formatError(loaded.error()) << '\n';
@@ -84,8 +84,10 @@ int main(int argc, char** argv) {
 			sceneRenderer.draw(engine, simulation, now);
 
 			const float fps = ImGui::GetIO().Framerate;
-			UiModule::drawOverlay({fps, fps > 0.f ? 1000.f / fps : 0.f, simulation.stepIndex(), simulation.time(),
-								   static_cast<int>(simulation.rays().size()), simulation.rayLimitHit()});
+			UiModule::drawOverlay({
+				fps, fps > 0.f ? 1000.f / fps : 0.f, simulation.stepIndex(), simulation.time(),
+				static_cast<int>(simulation.rays().size()), simulation.rayLimitHit()
+			});
 			UiModule::drawLabels(simulation.scene(), fit, fb);
 			imgui.endFrame(); // before the swap
 			engine.endFrame();

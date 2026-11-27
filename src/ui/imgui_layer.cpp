@@ -24,7 +24,7 @@ UiModule::ImGuiLayer::ImGuiLayer(GLFWwindow* window, const std::filesystem::path
 	std::error_code ec;
 	if (std::filesystem::exists(fontPath, ec)) {
 		io.Fonts->AddFontFromFileTTF(fontPath.string().c_str(), kFontSize, nullptr,
-									 io.Fonts->GetGlyphRangesCyrillic());
+									io.Fonts->GetGlyphRangesCyrillic());
 	} else {
 		std::cerr << "UI font not found: " << fontPath.string() << ", using the default font\n";
 		io.Fonts->AddFontDefault();

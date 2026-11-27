@@ -11,7 +11,7 @@
 #include "core/emitter.h"
 
 SimulationModule::Simulation::Simulation(SceneModule::SceneDescription scene, SceneModule::StyleMap sharedStyles,
-                                         SceneModule::Settings settings)
+										SceneModule::Settings settings)
 	: m_scene(std::move(scene)), m_sharedStyles(std::move(sharedStyles)), m_settings(std::move(settings)) {
 	updateFadeSteps();
 	resetSchedule();
@@ -20,7 +20,7 @@ SimulationModule::Simulation::Simulation(SceneModule::SceneDescription scene, Sc
 void SimulationModule::Simulation::step() {
 	m_rayLimitHit = false;
 
-	for (const SceneModule::EmitterDesc& emitter: m_scene.emitters) {
+	for (const auto& emitter: m_scene.emitters) {
 		std::optional<int>& next = m_nextFireStep[emitter.id];
 		if (next && *next <= m_stepIndex) {
 			// A skipped volley (ray limit) still moves the schedule on
@@ -31,7 +31,7 @@ void SimulationModule::Simulation::step() {
 	}
 
 	const float maxDistance = m_settings.world.maxDistance;
-	for (Ray& ray: m_rays) {
+	for (auto& ray: m_rays) {
 		ray.integrate(m_settings.simulation.dlambda, maxDistance, m_stepIndex);
 		if (const std::optional<int> fade = fadeStepsOf(ray.emitterId)) {
 			ray.trimTrail(m_stepIndex, *fade);
@@ -85,14 +85,14 @@ void SimulationModule::Simulation::setSettings(const SceneModule::Settings& sett
 }
 
 SceneModule::Seconds SimulationModule::Simulation::time() const {
-	return SceneModule::Seconds(static_cast<float>(m_stepIndex)
-	                            / static_cast<float>(m_settings.simulation.stepsPerSecond));
+	const auto seconds = static_cast<float>(m_stepIndex) / static_cast<float>(m_settings.simulation.stepsPerSecond);
+	return SceneModule::Seconds(seconds);
 }
 
 const SceneModule::Style& SimulationModule::Simulation::styleOf(int emitterId) const {
 	const auto emitter = std::ranges::find(m_scene.emitters, emitterId, &SceneModule::EmitterDesc::id);
 	if (emitter == m_scene.emitters.end()) {
-		static const SceneModule::Style defaultStyle;
+		static constexpr SceneModule::Style defaultStyle;
 		return defaultStyle;
 	}
 	return SceneModule::resolveStyle(emitter->style, m_scene.localStyles, m_sharedStyles);
@@ -100,14 +100,14 @@ const SceneModule::Style& SimulationModule::Simulation::styleOf(int emitterId) c
 
 void SimulationModule::Simulation::resetSchedule() {
 	m_nextFireStep.clear();
-	for (const SceneModule::EmitterDesc& emitter: m_scene.emitters) {
+	for (const auto& emitter: m_scene.emitters) {
 		m_nextFireStep[emitter.id] = startStep(emitter, m_settings.simulation.stepsPerSecond);
 	}
 }
 
 void SimulationModule::Simulation::updateFadeSteps() {
 	m_fadeSteps.clear();
-	for (const SceneModule::EmitterDesc& emitter: m_scene.emitters) {
+	for (const auto& emitter: m_scene.emitters) {
 		m_fadeSteps[emitter.id] = fadeSteps(styleOf(emitter.id), m_settings.simulation.stepsPerSecond);
 	}
 }
@@ -148,7 +148,7 @@ bool SimulationModule::Simulation::makeRoom(int incoming) {
 	}
 	const std::size_t evictCount = m_rays.size() + needed - maxRays;
 	std::ranges::sort(finished);
-	std::vector<bool> evicted(m_rays.size(), false);
+	std::vector evicted(m_rays.size(), false);
 	for (std::size_t k = 0; k < evictCount; ++k) {
 		evicted[finished[k].second] = true;
 	}

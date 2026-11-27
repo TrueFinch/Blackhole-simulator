@@ -12,7 +12,7 @@
 #include "core/constants.h"
 
 glm::vec4 ViewModule::trailPointColor(const SceneModule::Style& style, float deflection, int ageSteps,
-                                      std::optional<int> fadeSteps, std::size_t index, std::size_t count) {
+									std::optional<int> fadeSteps, std::size_t index, std::size_t count) {
 	constexpr float kMinAlpha = 0.2f;
 
 	const float t = std::min(1.f, deflection / PhysicsModule::kPi);

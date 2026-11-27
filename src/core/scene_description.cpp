@@ -7,7 +7,7 @@
 
 namespace SceneModule {
 	const Style& resolveStyle(const std::string& name, const StyleMap& local, const StyleMap& shared,
-	                          std::vector<std::string>* warnings) {
+							std::vector<std::string>* warnings) {
 		if (auto it = local.find(name); it != local.end()) {
 			return it->second;
 		}

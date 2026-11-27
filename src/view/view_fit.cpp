@@ -19,6 +19,8 @@ ViewModule::ViewFit ViewModule::fitView(int fbWidth, int fbHeight, glm::vec2 wor
 }
 
 glm::vec2 ViewModule::worldToScreen(glm::vec2 world, const ViewFit& fit, int fbWidth, int fbHeight) {
-	return {(world.x / fit.halfExtents.x * 0.5f + 0.5f) * static_cast<float>(fbWidth),
-	        (0.5f - world.y / fit.halfExtents.y * 0.5f) * static_cast<float>(fbHeight)};
+	return {
+		(world.x / fit.halfExtents.x * 0.5f + 0.5f) * static_cast<float>(fbWidth),
+		(0.5f - world.y / fit.halfExtents.y * 0.5f) * static_cast<float>(fbHeight)
+	};
 }

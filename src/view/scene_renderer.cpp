@@ -38,7 +38,7 @@ ViewModule::SceneRenderer::SceneRenderer(int starsCount, const SceneModule::Worl
 	: m_starfield(starCountForDensity(starsCount, world), world.maxDistance) {}
 
 void ViewModule::SceneRenderer::draw(RenderModule::RenderEngine& engine,
-                                     const SimulationModule::Simulation& simulation, float time) {
+									const SimulationModule::Simulation& simulation, float time) {
 	// Back to front
 	m_starfield.draw(engine, time);
 	drawBlackHole(engine);
@@ -57,7 +57,7 @@ void ViewModule::SceneRenderer::drawBlackHole(RenderModule::RenderEngine& engine
 }
 
 void ViewModule::SceneRenderer::drawRays(RenderModule::RenderEngine& engine,
-                                         const SimulationModule::Simulation& simulation) {
+										const SimulationModule::Simulation& simulation) {
 	using namespace RenderModule;
 	constexpr float kHeadSize = 3.f;
 
@@ -83,7 +83,7 @@ void ViewModule::SceneRenderer::drawRays(RenderModule::RenderEngine& engine,
 }
 
 void ViewModule::SceneRenderer::drawMarkers(RenderModule::RenderEngine& engine,
-                                            const SimulationModule::Simulation& simulation) {
+											const SimulationModule::Simulation& simulation) {
 	using namespace RenderModule;
 	constexpr float kMarkerSize = 8.f;
 
@@ -99,7 +99,7 @@ void ViewModule::SceneRenderer::drawMarkers(RenderModule::RenderEngine& engine,
 }
 
 void ViewModule::SceneRenderer::drawLabels(RenderModule::RenderEngine& engine,
-                                           const SimulationModule::Simulation& simulation) {
+											const SimulationModule::Simulation& simulation) {
 	using namespace RenderModule;
 	constexpr float kLabelMarkerSize = 6.f;
 

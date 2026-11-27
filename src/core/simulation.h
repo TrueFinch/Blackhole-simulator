@@ -19,8 +19,11 @@ namespace SimulationModule {
 	// the view layer reads its state through the const accessors.
 	class Simulation {
 	public:
-		Simulation(SceneModule::SceneDescription scene, SceneModule::StyleMap sharedStyles,
-		           SceneModule::Settings settings);
+		Simulation(
+			SceneModule::SceneDescription scene,
+			SceneModule::StyleMap sharedStyles,
+			SceneModule::Settings settings
+		);
 
 		// One step: due volleys -> integrate every ray -> trim faded trails -> remove gone rays -> ++step
 		void step();

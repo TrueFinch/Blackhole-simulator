@@ -50,34 +50,36 @@ namespace SceneModule {
 	static Schema<EmitterDesc> emitterSchema(std::string type, const Schema<Shape>& shapeSchema) {
 		Schema<EmitterDesc> schema = {typeField(std::move(type))};
 		const Schema<EmitterDesc> shape =
-			embed<EmitterDesc>(shapeSchema, [](auto& e) -> auto& { return std::get<Shape>(e.shape); });
+				embed<EmitterDesc>(shapeSchema, [](auto& e) -> auto& { return std::get<Shape>(e.shape); });
 		schema.insert(schema.end(), shape.begin(), shape.end());
 		schema.insert(schema.end(), {
-			field("rays", &EmitterDesc::rays, atLeast<1>),
-			field("start", &EmitterDesc::start, nonNegative),
-			field("cooldown", &EmitterDesc::cooldown, positive),
-			field("style", &EmitterDesc::style),
-			field("marker", &EmitterDesc::marker),
-		});
+						field("rays", &EmitterDesc::rays, atLeast<1>),
+						field("start", &EmitterDesc::start, nonNegative),
+						field("cooldown", &EmitterDesc::cooldown, positive),
+						field("style", &EmitterDesc::style),
+						field("marker", &EmitterDesc::marker),
+					});
 		return schema;
 	}
 
 	static const Schema<EmitterDesc>& schemaFor(const ConeShape&) {
 		static const Schema<EmitterDesc> schema = emitterSchema<ConeShape>("cone", {
-			required(field("pos", &ConeShape::pos)),
-			field("aim", &ConeShape::aim),
-			field("angle", &ConeShape::angle),
-			field("spread", &ConeShape::spread, nonNegative),
-		});
+																				required(field("pos", &ConeShape::pos)),
+																				field("aim", &ConeShape::aim),
+																				field("angle", &ConeShape::angle),
+																				field("spread", &ConeShape::spread,
+																					nonNegative),
+																			});
 		return schema;
 	}
 
 	static const Schema<EmitterDesc>& schemaFor(const LineShape&) {
 		static const Schema<EmitterDesc> schema = emitterSchema<LineShape>("line", {
-			required(field("from", &LineShape::from)),
-			required(field("to", &LineShape::to)),
-			field("angle", &LineShape::angle),
-		});
+																				required(
+																					field("from", &LineShape::from)),
+																				required(field("to", &LineShape::to)),
+																				field("angle", &LineShape::angle),
+																			});
 		return schema;
 	}
 

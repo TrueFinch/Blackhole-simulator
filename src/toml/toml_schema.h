@@ -306,8 +306,8 @@ namespace SceneModule {
 	// named "key[1]", "key[2]"... in diagnostics. An empty vector is not written.
 	template<class S, class E>
 	FieldDesc<S> tableArray(const std::string& key, std::vector<E> S::* member,
-	                        std::type_identity_t<ElementReader<E>> readElement,
-	                        std::type_identity_t<ElementWriter<E>> writeElement) {
+							std::type_identity_t<ElementReader<E>> readElement,
+							std::type_identity_t<ElementWriter<E>> writeElement) {
 		FieldDesc<S> desc{.key = key};
 		desc.read = [key, member, readElement](const toml::node& node, S& out, const ReadContext& ctx) {
 			const toml::array* array = node.as_array();

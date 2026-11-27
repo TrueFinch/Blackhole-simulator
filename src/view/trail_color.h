@@ -18,5 +18,5 @@ namespace ViewModule {
 	// Alpha: with fade -> 1 - ageSteps / fadeSteps (clamped to 0..1);
 	//        without fade -> 0.2 + 0.8 * index / (count - 1), the oldest point is the faintest.
 	[[nodiscard]] glm::vec4 trailPointColor(const SceneModule::Style& style, float deflection, int ageSteps,
-	                                        std::optional<int> fadeSteps, std::size_t index, std::size_t count);
+											std::optional<int> fadeSteps, std::size_t index, std::size_t count);
 } // namespace ViewModule
