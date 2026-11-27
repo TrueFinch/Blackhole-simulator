@@ -1,0 +1,35 @@
+name = "Classic"
+description = "The original tutorial: orbiting ray, point source, parallel beam, 3 s apart"
+
+# 1. A single ray that orbits the black hole.
+# The capture threshold is extremely sensitive (and depends on dlambda and float precision):
+# with dlambda = 0.05 the ray is captured for y <= 2.5786 and escapes after ~2.4 turns for
+# y = 2.5787.
+[[emitter]]
+type = "cone"
+pos = [-7.2, 2.5787]
+angle = 0
+spread = 0
+rays = 1
+start = "0s"
+style = "magenta"
+
+# 2. A fan from a point source (a single volley here).
+[[emitter]]
+type = "cone"
+pos = [-7.6, 5.1]
+aim = [0, 0]
+spread = 1.0471976
+rays = 25
+start = "3s"
+style = "lime"
+
+# 3. A parallel beam.
+[[emitter]]
+type = "line"
+from = [-8, -6]
+to = [-8, 6]
+angle = 0
+rays = 70
+start = "6s"
+style = "rainbow"

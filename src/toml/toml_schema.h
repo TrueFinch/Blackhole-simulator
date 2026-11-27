@@ -18,8 +18,10 @@
 // file, the line of the offending node and the dotted field name ("window.width").
 
 #include <algorithm>
+#include <chrono>
 #include <expected>
 #include <functional>
+#include <map>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -114,6 +116,15 @@ namespace SceneModule {
 		static std::expected<std::string, std::string> read(const toml::node& node);
 
 		static const std::string& write(const std::string& value) { return value; }
+	};
+
+	// A duration: a string of a number and a unit, "1.5s" or "500ms". A bare number is an error,
+	// so a file never leaves the unit to guess. Written in ms below a second, else in s.
+	template<>
+	struct Codec<std::chrono::duration<float>> {
+		static std::expected<std::chrono::duration<float>, std::string> read(const toml::node& node);
+
+		static std::string write(std::chrono::duration<float> value);
 	};
 
 	// [x, y]: two finite numbers.
@@ -259,6 +270,129 @@ namespace SceneModule {
 		desc.write = [key, member, sub](const S& in, toml::table& out) {
 			toml::table table;
 			writeFields(in.*member, *sub, table);
+			out.insert_or_assign(key, std::move(table));
+		};
+		return desc;
+	}
+
+	// The fields of a part of S, read from and written to the same table as S's own fields (no
+	// nested table). `part` maps S& to Sub& and const S& to const Sub&, e.g.
+	//   [](auto &e) -> auto & { return std::get<ConeShape>(e.shape); }
+	template<class S, class Sub, class Part>
+	Schema<S> embed(const Schema<Sub>& schema, Part part) {
+		Schema<S> result;
+		result.reserve(schema.size());
+		for (const FieldDesc<Sub>& f: schema) {
+			result.push_back({
+				.key = f.key,
+				.required = f.required,
+				.read = [read = f.read, part](const toml::node& node, S& out, const ReadContext& ctx) {
+					read(node, part(out), ctx);
+				},
+				.write = [write = f.write, part](const S& in, toml::table& out) { write(part(in), out); },
+			});
+		}
+		return result;
+	}
+
+	// Reads one element of a table array or table map into `out` (which starts default-constructed).
+	// `index` is 1-based for arrays and 0 for maps. Problems are reported only through ctx.
+	template<class E>
+	using ElementReader = std::function<void(const toml::table&, int index, E&, const ReadContext&)>;
+	template<class E>
+	using ElementWriter = std::function<void(const E&, toml::table&)>;
+
+	// An array of tables ([[key]] in TOML) with a custom element reader/writer. Elements are
+	// named "key[1]", "key[2]"... in diagnostics. An empty vector is not written.
+	template<class S, class E>
+	FieldDesc<S> tableArray(const std::string& key, std::vector<E> S::* member,
+	                        std::type_identity_t<ElementReader<E>> readElement,
+	                        std::type_identity_t<ElementWriter<E>> writeElement) {
+		FieldDesc<S> desc{.key = key};
+		desc.read = [key, member, readElement](const toml::node& node, S& out, const ReadContext& ctx) {
+			const toml::array* array = node.as_array();
+			if (!array) {
+				return ctx.fail(node, key, "expected an array of tables ([[" + key + "]])");
+			}
+			std::vector<E> result;
+			for (size_t i = 0; i < array->size(); ++i) {
+				const std::string name = key + "[" + std::to_string(i + 1) + "]";
+				const toml::table* table = array->get(i)->as_table();
+				if (!table) {
+					return ctx.fail(*array->get(i), name, "expected a table");
+				}
+				E element{};
+				readElement(*table, static_cast<int>(i + 1), element, ctx.nested(name));
+				if (ctx.failed()) {
+					return;
+				}
+				result.push_back(std::move(element));
+			}
+			out.*member = std::move(result);
+		};
+		desc.write = [key, member, writeElement](const S& in, toml::table& out) {
+			if ((in.*member).empty()) {
+				return;
+			}
+			toml::array array;
+			for (const E& element: in.*member) {
+				toml::table table;
+				writeElement(element, table);
+				array.push_back(std::move(table));
+			}
+			out.insert_or_assign(key, std::move(array));
+		};
+		return desc;
+	}
+
+	// An array of tables whose elements are described by `schema` (which must outlive the result).
+	template<class S, class E>
+	FieldDesc<S> tableArray(const std::string& key, std::vector<E> S::* member, const Schema<E>& schema) {
+		const Schema<E>* sub = &schema;
+		return tableArray<S, E>(
+			key, member,
+			[sub](const toml::table& table, int, E& out, const ReadContext& ctx) {
+				static_cast<void>(readFields(table, *sub, out, ctx));
+			},
+			[sub](const E& in, toml::table& out) { writeFields(in, *sub, out); });
+	}
+
+	// A table of named sub-tables ([key.<name>] in TOML), each described by `schema` (which must
+	// outlive the result). Elements are named "key.<name>". An empty map is not written.
+	template<class S, class E>
+	FieldDesc<S> tableMap(const std::string& key, std::map<std::string, E> S::* member, const Schema<E>& schema) {
+		const Schema<E>* sub = &schema;
+		FieldDesc<S> desc{.key = key};
+		desc.read = [key, member, sub](const toml::node& node, S& out, const ReadContext& ctx) {
+			const toml::table* table = node.as_table();
+			if (!table) {
+				return ctx.fail(node, key, "expected a table");
+			}
+			const ReadContext inner = ctx.nested(key);
+			std::map<std::string, E> result;
+			for (const auto& [name, value]: *table) {
+				const toml::table* element = value.as_table();
+				if (!element) {
+					return inner.fail(value, name.str(), "expected a table");
+				}
+				E e{};
+				if (!readFields(*element, *sub, e, inner.nested(name.str()))) {
+					return;
+				}
+				result.emplace(std::string(name.str()), std::move(e));
+			}
+			out.*member = std::move(result);
+		};
+		desc.write = [key, member, sub](const S& in, toml::table& out) {
+			if ((in.*member).empty()) {
+				return;
+			}
+			toml::table table;
+			for (const auto& [name, element]: in.*member) {
+				toml::table elementTable;
+				writeFields(element, *sub, elementTable);
+				table.insert_or_assign(name, std::move(elementTable));
+			}
 			out.insert_or_assign(key, std::move(table));
 		};
 		return desc;

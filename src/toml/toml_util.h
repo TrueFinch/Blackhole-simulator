@@ -18,7 +18,13 @@
 // Low-level TOML helpers shared by the readers/writers in SceneModule.
 // Field-by-field reading and writing lives in toml_schema.h.
 namespace SceneModule {
-	// Parses `path`. A missing file or a syntax error becomes an IoError (with the line if known).
+	// Reads the whole file as text (needed when the raw text matters, e.g. to detect comments).
+	[[nodiscard]] std::expected<std::string, IoError> readTextFile(const std::filesystem::path &path);
+
+	// Parses TOML `text`; `file` is used in error messages. A syntax error carries its line.
+	[[nodiscard]] std::expected<toml::table, IoError> parseToml(const std::string &text, const std::string &file);
+
+	// readTextFile + parseToml.
 	[[nodiscard]] std::expected<toml::table, IoError> parseTomlFile(const std::filesystem::path &path);
 
 	// Creates parent directories and writes `root` to `path`.

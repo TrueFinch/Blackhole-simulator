@@ -25,7 +25,7 @@ namespace {
 		std::string name = "default";
 		glm::vec2 pos{0.f};
 		glm::vec3 color{1.f};
-		std::optional<float> cooldown;
+		std::optional<std::chrono::duration<float>> cooldown;
 		Inner inner;
 
 		bool operator==(const Sample&) const = default;
@@ -71,7 +71,7 @@ width = 2
 name = "beam"
 pos = [-7.5, 3]
 color = "#ff8000"
-cooldown = 0.25
+cooldown = "250ms"
 [inner]
 count = 3
 flag = true
@@ -82,7 +82,7 @@ flag = true
 		CHECK(r.sample.name == "beam");
 		CHECK(r.sample.pos == glm::vec2{-7.5f, 3.f});
 		CHECK(r.sample.color.g == Catch::Approx(128.f / 255.f));
-		CHECK(r.sample.cooldown == 0.25f);
+		CHECK(r.sample.cooldown == std::chrono::duration<float>(0.25f));
 		CHECK(r.sample.inner == Inner{3, true});
 	}
 
@@ -115,9 +115,10 @@ flag = true
 		REQUIRE(nested.state.error);
 		CHECK(nested.state.error->message == "must be at least 1");
 
-		auto optional = read("cooldown = -1");
+		auto optional = read(R"(cooldown = "-1s")");
 		REQUIRE(optional.state.error);
 		CHECK(optional.state.error->field == "cooldown");
+		CHECK(optional.state.error->message == "must be positive");
 	}
 
 	SECTION("Schema rejects bad numbers") {
@@ -130,6 +131,50 @@ flag = true
 		CHECK(read("pos = [1, nan]").state.error->message == "expected an array of two finite numbers");
 		CHECK(read("color = \"red\"").state.error->message == "expected a color like #rrggbb");
 		CHECK(read("inner = 5").state.error->message == "expected a table");
+	}
+
+	SECTION("Durations need a unit") {
+		const std::string expected = R"(expected a duration like "1.5s" or "500ms")";
+		for (const char* text: {"cooldown = 1", "cooldown = 1.5", R"(cooldown = "1")", R"(cooldown = "1 s")",
+		                        R"(cooldown = "1sec")", R"(cooldown = "s")", R"(cooldown = " 1s")",
+		                        R"(cooldown = "+1s")", R"(cooldown = "1S")", R"(cooldown = "")"}) {
+			INFO(text);
+			auto r = read(text);
+			REQUIRE(r.state.error);
+			CHECK(r.state.error->message == expected);
+		}
+		CHECK(read(R"(cooldown = "infs")").state.error->message == "duration must be finite");
+		CHECK(read(R"(cooldown = "1e300s")").state.error->message == "duration must be finite");
+
+		using Duration = std::chrono::duration<float>;
+		CHECK(read(R"(cooldown = "2s")").sample.cooldown == Duration(2.f));
+		CHECK(read(R"(cooldown = "1.5s")").sample.cooldown == Duration(1.5f));
+		CHECK(read(R"(cooldown = "500ms")").sample.cooldown == Duration(0.5f));
+		CHECK(read(R"(cooldown = "1500ms")").sample.cooldown == Duration(1.5f));
+		CHECK(read(R"(cooldown = "1e3ms")").sample.cooldown == Duration(1.f));
+	}
+
+	SECTION("Durations are written in ms below a second, else in s") {
+		using C = Codec<std::chrono::duration<float>>;
+		using Duration = std::chrono::duration<float>;
+		CHECK(C::write(Duration(0.f)) == "0s");
+		CHECK(C::write(Duration(3.f)) == "3s");
+		CHECK(C::write(Duration(1.5f)) == "1.5s");
+		CHECK(C::write(Duration(0.5f)) == "500ms");
+		CHECK(C::write(Duration(0.0125f)) == "12.5ms");
+		CHECK(C::write(Duration(0.001f)) == "1ms");
+		CHECK(C::write(Duration(0.0001f)) == "0.1ms");
+		CHECK(C::write(Duration(0.254f)) == "254ms");
+		CHECK(C::write(Duration(-0.5f)) == "-500ms");
+		CHECK(C::write(Duration(90.f)) == "90s");
+
+		// Every whole number of ms below a second survives a write/read/write cycle unchanged.
+		for (int ms = 1; ms < 1000; ++ms) {
+			const std::string text = std::to_string(ms) + "ms";
+			auto value = C::read(toml::value<std::string>(text));
+			REQUIRE(value);
+			CHECK(C::write(*value) == text);
+		}
 	}
 
 	SECTION("Schema keeps only the first error") {
@@ -166,7 +211,7 @@ flag = true
 		s.name = "beam";
 		s.pos = {-8.f, 2.5787f};
 		s.color = {1.f, 0.f, 128.f / 255.f};
-		s.cooldown = 3.f;
+		s.cooldown = std::chrono::duration<float>(3.f);
 		s.inner = {7, true};
 
 		toml::table table;
@@ -176,7 +221,7 @@ flag = true
 		// Floats are written in their shortest round-tripping form (see TOML_FLOAT_CHARCONV in CMake).
 		CHECK(text.str().find("width = 0.0125\n") != std::string::npos);
 		CHECK(text.str().find("pos = [ -8.0, 2.5787 ]") != std::string::npos);
-		CHECK(text.str().find("cooldown = 3.0\n") != std::string::npos);
+		CHECK(text.str().find("cooldown = '3s'\n") != std::string::npos);
 		CHECK(text.str().find("color = '#ff0080'") != std::string::npos);
 
 		auto r = read(text.str());
@@ -214,5 +259,29 @@ flag = true
 		REQUIRE(r.has_value());
 		CHECK(r->name == "preset");
 		CHECK(r->width == 4.f);
+	}
+
+	SECTION("embed reads and writes a part's fields in the same table") {
+		const Schema<Sample> schema = [] {
+			Schema<Sample> result = {field("name", &Sample::name)};
+			const Schema<Sample> inner = embed<Sample>(innerSchema(), [](auto& s) -> auto& { return s.inner; });
+			result.insert(result.end(), inner.begin(), inner.end());
+			return result;
+		}();
+
+		auto r = read("name = \"a\"\ncount = 3\nflag = true", schema);
+		CHECK(r.state.warnings.empty());
+		CHECK(r.sample.name == "a");
+		CHECK(r.sample.inner == Inner{.count = 3, .flag = true});
+
+		auto bad = read("count = 0", schema);
+		REQUIRE(bad.state.error.has_value());
+		CHECK(bad.state.error->field == "count"); // no "inner." prefix: same table
+
+		toml::table out;
+		writeFields(r.sample, schema, out);
+		CHECK(out.size() == 3);
+		CHECK(out["count"].value<int>() == 3);
+		CHECK_FALSE(out.contains("inner"));
 	}
 }

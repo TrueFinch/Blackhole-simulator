@@ -1,0 +1,32 @@
+# Shared ray styles. A scenario refers to them by name (style = "lime"); a [styles.<name>] table
+# inside a scenario file overrides the one with the same name from here.
+#
+# trail_from -> trail_to  the trail colour, from the oldest point to the newest
+# head                    colour of the ray head
+# width                   line width in pixels
+# fade                    simulation time until a trail point vanishes, "3s" or "500ms"; omit to keep it forever
+
+[styles.lime]
+trail_from = "#80ff00"
+trail_to = "#ffff00"
+head = "#80ff00"
+width = 1.5
+
+[styles.lime_fading]
+trail_from = "#80ff00"
+trail_to = "#ffff00"
+head = "#80ff00"
+width = 1.5
+fade = "3s"
+
+[styles.magenta]
+trail_from = "#ff33ff"
+trail_to = "#ff33ff"
+head = "#ff33ff"
+width = 1.5
+
+[styles.rainbow]
+trail_from = "#0080ff"
+trail_to = "#ff0000"
+head = "#ffff00"
+width = 1.5

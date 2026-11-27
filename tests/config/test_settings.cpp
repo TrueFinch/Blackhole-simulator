@@ -120,6 +120,25 @@ TEST_CASE("Settings schema") {
 		CHECK(result.error().message == "must not be negative");
 	}
 
+	SECTION("Integer fields reject non-integers and out-of-range values") {
+		auto fractional = loadSettings(writeTemp("[window]\nwidth = 800.5"));
+		REQUIRE_FALSE(fractional.has_value());
+		CHECK(fractional.error().field == "window.width");
+		CHECK(fractional.error().line == 2);
+		CHECK_FALSE(loadSettings(writeTemp("[window]\nwidth = true")).has_value());
+		auto big = loadSettings(writeTemp("[window]\nwidth = 99999999999"));
+		REQUIRE_FALSE(big.has_value());
+		CHECK(big.error().field == "window.width");
+		CHECK(big.error().message.find("range") != std::string::npos);
+	}
+
+	SECTION("Float fields reject non-finite values and bools") {
+		CHECK_FALSE(loadSettings(writeTemp("[simulation]\ndlambda = inf")).has_value());
+		CHECK_FALSE(loadSettings(writeTemp("[simulation]\ndlambda = nan")).has_value());
+		CHECK_FALSE(loadSettings(writeTemp("[simulation]\ndlambda = true")).has_value());
+		CHECK(loadSettings(writeTemp("[simulation]\ndlambda = 1")).has_value()); // integer is a number
+	}
+
 	SECTION("Missing settings file is an error") {
 		auto result = loadSettings(tempPath("does_not_exist_settings.toml"));
 		REQUIRE_FALSE(result.has_value());

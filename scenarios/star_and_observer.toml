@@ -1,0 +1,23 @@
+name = "Star and observer"
+description = "Light from a star bends around the black hole and reaches the observer"
+
+# Labels are plain text drawn at a point of the scene; the file is UTF-8.
+[[emitter]]
+type = "cone"
+pos = [-7, 3]
+aim = [0, 0]
+spread = 0.6
+rays = 15
+start = "0s"
+cooldown = "1s"
+style = "lime_fading"
+
+[[label]]
+pos = [-7, 3]
+text = "Звезда"
+color = "#ffffff"
+
+[[label]]
+pos = [7, -3]
+text = "Наблюдатель"
+color = "#ffffff"

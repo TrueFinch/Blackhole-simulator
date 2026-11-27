@@ -24,6 +24,7 @@ FetchContent_MakeAvailable(tomlplusplus)
 #   core/    physics, rays, simulation — depends only on glm
 #   toml/    generic TOML layer: IoError, helpers, field schemas
 #   config/  application settings (config/settings.toml)
+#   scene/   scene model, scenario and style files (scenarios/*.toml, config/styles.toml)
 #   render/  OpenGL primitives
 #   view/    scene drawing: rays, black hole, starfield
 #   app/     entry point
@@ -41,7 +42,7 @@ add_library(blackhole_core STATIC
 target_include_directories(blackhole_core PUBLIC src)
 target_link_libraries(blackhole_core PUBLIC glm::glm)
 
-# Data files: the TOML layer and the settings built on it. No OpenGL.
+# Data files: the TOML layer and the settings and scenes built on it. No OpenGL.
 add_library(blackhole_io STATIC
 		src/toml/io_error.cpp
 		src/toml/io_error.h
@@ -51,6 +52,9 @@ add_library(blackhole_io STATIC
 		src/toml/toml_util.h
 		src/config/settings.cpp
 		src/config/settings.h
+		src/scene/scene.h
+		src/scene/scene_io.cpp
+		src/scene/scene_io.h
 )
 target_include_directories(blackhole_io PUBLIC src)
 target_link_libraries(blackhole_io PUBLIC glm::glm tomlplusplus::tomlplusplus)
@@ -58,6 +62,8 @@ target_link_libraries(blackhole_io PUBLIC glm::glm tomlplusplus::tomlplusplus)
 # falls back to printing max_digits10 digits: 0.0125 becomes 0.012500000000000001. Our toolchains
 # have floating-point <charconv> (toTomlFloat already relies on it), so get the shortest form.
 target_compile_definitions(blackhole_io PUBLIC TOML_FLOAT_CHARCONV=1)
+# Root directory that holds config/ and scenarios/.
+target_compile_definitions(blackhole_io PUBLIC BLACKHOLE_DATA_DIR="${CMAKE_SOURCE_DIR}")
 
 add_executable(blackhole_simulator
 		src/app/main.cpp
@@ -87,7 +93,8 @@ add_executable(tests
 		tests/core/test_physics.cpp
 		tests/toml/test_toml_schema.cpp
 		tests/config/test_settings.cpp
+		tests/scene/test_scene_io.cpp
+		tests/scene/test_data_files.cpp
 )
 target_link_libraries(tests PRIVATE blackhole_core blackhole_io Catch2::Catch2WithMain)
-target_compile_definitions(tests PRIVATE BLACKHOLE_DATA_DIR="${CMAKE_SOURCE_DIR}")
 add_test(NAME tests COMMAND tests)

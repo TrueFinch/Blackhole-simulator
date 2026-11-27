@@ -1,0 +1,14 @@
+name = "Orbiting ray"
+description = "A single ray aimed so that it winds around the black hole before escaping"
+
+[[emitter]]
+type = "cone"
+pos = [-7.2, 2.5787]
+# The capture threshold is extremely sensitive (and depends on dlambda and float precision):
+# with dlambda = 0.05 the ray is captured for y <= 2.5786 and escapes after ~2.4 turns for
+# y = 2.5787. The critical impact parameter is b = 3*sqrt(3)/2 rs ~ 2.598 rs.
+angle = 0               # rad, 0 = straight toward +x
+spread = 0
+rays = 1
+start = "0s"
+style = "magenta"

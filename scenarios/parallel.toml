@@ -1,0 +1,11 @@
+name = "Parallel beam"
+description = "A wall of parallel rays bent by the black hole"
+
+[[emitter]]
+type = "line"
+from = [-8, -6]
+to = [-8, 6]
+angle = 0               # direction of the rays, rad
+rays = 70
+start = "0s"
+style = "rainbow"

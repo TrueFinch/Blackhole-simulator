@@ -10,18 +10,36 @@
 #include <cmath>
 #include <cstdio>
 #include <fstream>
+#include <sstream>
 
 namespace SceneModule {
-	std::expected<toml::table, IoError> parseTomlFile(const std::filesystem::path& path) {
-		const std::string file = path.string();
+	std::expected<std::string, IoError> readTextFile(const std::filesystem::path& path) {
+		std::ifstream in(path, std::ios::binary);
+		if (!in) {
+			return std::unexpected(IoError{path.string(), 0, "", "cannot open file"});
+		}
+		std::stringstream buffer;
+		buffer << in.rdbuf();
+		return buffer.str();
+	}
+
+	std::expected<toml::table, IoError> parseToml(const std::string& text, const std::string& file) {
 		try {
-			return toml::parse_file(file);
+			return toml::parse(text, file);
 		} catch (const toml::parse_error& e) {
 			return std::unexpected(IoError{
 				file, static_cast<int>(e.source().begin.line), "",
 				std::string(e.description())
 			});
 		}
+	}
+
+	std::expected<toml::table, IoError> parseTomlFile(const std::filesystem::path& path) {
+		auto text = readTextFile(path);
+		if (!text) {
+			return std::unexpected(text.error());
+		}
+		return parseToml(*text, path.string());
 	}
 
 	std::expected<void, IoError> writeTomlFile(const toml::table& root, const std::filesystem::path& path) {

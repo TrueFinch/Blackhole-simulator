@@ -5,6 +5,7 @@
 
 #include "toml/toml_schema.h"
 
+#include <charconv>
 #include <cmath>
 #include <limits>
 
@@ -101,6 +102,54 @@ namespace SceneModule {
 
 	toml::array Codec<glm::vec2>::write(glm::vec2 value) {
 		return toml::array{toTomlFloat(value.x), toTomlFloat(value.y)};
+	}
+
+	std::expected<std::chrono::duration<float>, std::string>
+	Codec<std::chrono::duration<float>>::read(const toml::node& node) {
+		constexpr auto kExpected = R"(expected a duration like "1.5s" or "500ms")";
+		if (!node.is_string()) {
+			return std::unexpected(kExpected);
+		}
+		const std::string& text = node.as_string()->get();
+		double number = 0.0;
+		const auto [end, ec] = std::from_chars(text.data(), text.data() + text.size(), number);
+		if (ec != std::errc{}) {
+			return std::unexpected(kExpected);
+		}
+		const std::string_view unit(end, text.data() + text.size());
+		double seconds = 0.0;
+		if (unit == "s") {
+			seconds = number;
+		} else if (unit == "ms") {
+			seconds = number / 1000.0;
+		} else {
+			return std::unexpected(kExpected);
+		}
+		const auto value = static_cast<float>(seconds);
+		if (!std::isfinite(value)) {
+			return std::unexpected("duration must be finite");
+		}
+		return std::chrono::duration<float>(value);
+	}
+
+	std::string Codec<std::chrono::duration<float>>::write(std::chrono::duration<float> value) {
+		const float seconds = value.count();
+		char buffer[64];
+		// The shortest digits that read back as this float, without an exponent: "0.0125", "3".
+		const auto written = std::to_chars(buffer, buffer + sizeof(buffer), seconds, std::chars_format::fixed);
+		const std::string text(buffer, written.ptr);
+		if (seconds == 0.f || std::abs(seconds) >= 1.f) {
+			return text + "s";
+		}
+		// Below a second: move the decimal point three places right in the text, not in the number
+		// (seconds * 1000 in float turns 0.254 into 254.00002).
+		const bool negative = text.front() == '-';
+		std::string fraction = text.substr(text.find('.') + 1); // "0.0125" -> "0125"
+		fraction.resize(std::max<size_t>(fraction.size(), 3), '0'); // "5" -> "500"
+		std::string whole = fraction.substr(0, 3);
+		const std::string rest = fraction.substr(3);
+		whole.erase(0, std::min(whole.find_first_not_of('0'), whole.size() - 1)); // "012" -> "12", "000" -> "0"
+		return (negative ? "-" : "") + whole + (rest.empty() ? "" : "." + rest) + "ms";
 	}
 
 	std::expected<glm::vec3, std::string> HexColor::read(const toml::node& node) {
