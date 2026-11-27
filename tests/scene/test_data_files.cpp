@@ -10,6 +10,8 @@
 #include <filesystem>
 #include <vector>
 
+#include "config/data_paths.h"
+#include "core/simulation.h"
 #include "scene/scene_io.h"
 
 using namespace SceneModule;
@@ -58,5 +60,31 @@ TEST_CASE("Shipped data files") {
 		CHECK(emitters[0].start.count() == Approx(0.f));
 		CHECK(emitters[1].start.count() == Approx(3.f));
 		CHECK(emitters[2].start.count() == Approx(6.f));
+	}
+
+	SECTION("Shipped point_source scenario fires its cone every 90 steps") {
+		auto styles = loadStyles(DataPaths{kDataDir}.styles());
+		REQUIRE(styles.has_value());
+		const Settings settings;
+		auto loaded = loadScene(DataPaths{kDataDir}.scenario("point_source"), settings.world);
+		REQUIRE(loaded.has_value());
+		REQUIRE(loaded->scene.emitters.size() == 1);
+		// The default style (no fade), so that no ray disappears while counting
+		loaded->scene.emitters.front().style = kDefaultStyleName;
+		const auto perVolley = static_cast<std::size_t>(loaded->scene.emitters.front().rays);
+		SimulationModule::Simulation simulation(loaded->scene, *styles, settings);
+		auto run = [&](int steps) {
+			for (int i = 0; i < steps; ++i) {
+				simulation.step();
+			}
+		};
+		run(90); // steps 0..89
+		CHECK(simulation.rays().size() == perVolley);
+		run(1); // step 90
+		CHECK(simulation.rays().size() == 2 * perVolley);
+		run(89); // steps 91..179
+		CHECK(simulation.rays().size() == 2 * perVolley);
+		run(1); // step 180
+		CHECK(simulation.rays().size() == 3 * perVolley);
 	}
 }

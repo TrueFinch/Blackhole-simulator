@@ -3,14 +3,15 @@
 //
 
 #pragma once
-#include <vector>
+#include <deque>
 #include <glm/vec2.hpp>
 
 namespace SimulationModule {
-	enum class RayScenario {
-		PARALLEL, // Parallel rays from left side (distant starlight)
-		POINT_SOURCE, // Rays emanating from a single point (gravitational lensing)
-		ORBITING // Special orbiting ray (photon sphere)
+	// One point of a ray trail: where the ray was at which simulation step.
+	struct TrailPoint {
+		glm::vec2 pos;
+		int step;
+		float deflection; // of the ray at that step
 	};
 
 	struct Ray {
@@ -30,23 +31,26 @@ namespace SimulationModule {
 		float totalTurn = 0.f;
 		float deflection = 0.f; // How much direction has changed
 
-		RayScenario scenario;
-		int startFrame;
+		int emitterId; // EmitterDesc::id of the emitter that fired this ray
 
-		std::vector<glm::vec2> trail;
+		std::deque<TrailPoint> trail; // oldest first
 
-		Ray(float x, float y, float vx, float vy, RayScenario scenario, int startFrame = 0);
+		// `dir` need not be normalized; birthStep is the step of the first trail point.
+		Ray(glm::vec2 pos, glm::vec2 dir, int emitterId, int birthStep);
 
 		[[nodiscard]] bool isCaptured() const;
 
 		[[nodiscard]] bool hasEscaped(float maxDistance) const;
 
-		void recordPosition();
+		// Captured or escaped: integrate does nothing any more.
+		[[nodiscard]] bool isFinished(float maxDistance) const;
 
-		void integrate(float dlambda, float maxDistance, int currentFrame);
+		// One integration step that adds a trail point for `step`; does nothing once finished.
+		void integrate(float dlambda, float maxDistance, int step);
+
+		// Drops trail points more than fadeSteps older than currentStep.
+		void trimTrail(int currentStep, int fadeSteps);
 
 		void updateDeflection();
-
-		[[nodiscard]] bool isActive(int currentFrame) const;
 	};
 }

@@ -13,7 +13,6 @@
 
 using Catch::Approx;
 using SimulationModule::Ray;
-using SimulationModule::RayScenario;
 
 namespace {
 	constexpr float kStep = 0.05f;
@@ -22,7 +21,7 @@ namespace {
 TEST_CASE("Physics") {
 	SECTION("Ray constructor converts to polar coordinates")
 	{
-		const Ray ray(3.f, 4.f, 1.f, 0.f, RayScenario::PARALLEL, 0);
+		const Ray ray({3.f, 4.f}, {1.f, 0.f}, 0, 0);
 		CHECK(ray.r == Approx(5.f));
 		CHECK(ray.phi == Approx(std::atan2(4.f, 3.f)));
 		// L = x*vy - y*vx
@@ -31,7 +30,7 @@ TEST_CASE("Physics") {
 
 	SECTION("Angular momentum is conserved exactly by verlet")
 	{
-		Ray ray(-10.f, 5.f, 1.f, 0.f, RayScenario::PARALLEL, 0);
+		Ray ray({-10.f, 5.f}, {1.f, 0.f}, 0, 0);
 		const float L = ray.L;
 		for (int frame = 0; frame < 2000; ++frame) {
 			ray.integrate(kStep, 50.f, frame);
@@ -41,7 +40,7 @@ TEST_CASE("Physics") {
 
 	SECTION("Null condition stays bounded")
 	{
-		Ray ray(-10.f, 5.f, 1.f, 0.f, RayScenario::PARALLEL, 0);
+		Ray ray({-10.f, 5.f}, {1.f, 0.f}, 0, 0);
 		const auto e2 = [](const Ray& r) {
 			return r.v_r * r.v_r + (1.f - PhysicsModule::kRs / r.r) * r.L * r.L / (r.r * r.r);
 		};
@@ -54,7 +53,7 @@ TEST_CASE("Physics") {
 
 	SECTION("Ray below critical impact parameter is captured")
 	{
-		Ray ray(-10.f, 2.5f, 1.f, 0.f, RayScenario::PARALLEL, 0);
+		Ray ray({-10.f, 2.5f}, {1.f, 0.f}, 0, 0);
 		for (int frame = 0; frame < 2000 && !ray.isCaptured(); ++frame) {
 			ray.integrate(kStep, 50.f, frame);
 		}
@@ -63,7 +62,7 @@ TEST_CASE("Physics") {
 
 	SECTION("Ray above critical impact parameter escapes")
 	{
-		Ray ray(-10.f, 2.7f, 1.f, 0.f, RayScenario::PARALLEL, 0);
+		Ray ray({-10.f, 2.7f}, {1.f, 0.f}, 0, 0);
 		for (int frame = 0; frame < 4000 && !ray.isCaptured() && !ray.hasEscaped(50.f); ++frame) {
 			ray.integrate(kStep, 50.f, frame);
 		}
@@ -76,7 +75,7 @@ TEST_CASE("Physics") {
 		// The start radius (~400.5) already exceeds 400, so integrate with a larger
 		// limit and measure the deflection once the ray is beyond the start distance.
 		constexpr float kLimit = 1000.f;
-		Ray ray(-400.f, 20.f, 1.f, 0.f, RayScenario::PARALLEL, 0);
+		Ray ray({-400.f, 20.f}, {1.f, 0.f}, 0, 0);
 		for (int frame = 0; frame < 100000 && !ray.hasEscaped(kLimit); ++frame) {
 			ray.integrate(kStep, kLimit, frame);
 		}
@@ -90,7 +89,7 @@ TEST_CASE("Physics") {
 
 	SECTION("Ray does not move after capture")
 	{
-		Ray ray(-10.f, 2.5f, 1.f, 0.f, RayScenario::PARALLEL, 0);
+		Ray ray({-10.f, 2.5f}, {1.f, 0.f}, 0, 0);
 		int frame = 0;
 		for (; frame < 2000 && !ray.isCaptured(); ++frame) {
 			ray.integrate(kStep, 50.f, frame);

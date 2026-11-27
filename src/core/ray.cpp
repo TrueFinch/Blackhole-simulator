@@ -10,10 +10,13 @@
 #include "core/physics.h"
 
 
-SimulationModule::Ray::Ray(float x, float y, float vx, float vy, RayScenario scenario,
-							int startFrame): scenario(scenario)
-											, startFrame(startFrame) {
+SimulationModule::Ray::Ray(glm::vec2 pos, glm::vec2 dir, int emitterId, int birthStep)
+	: emitterId(emitterId) {
 	using namespace PhysicsModule;
+	const float x = pos.x;
+	const float y = pos.y;
+	const float vx = dir.x;
+	const float vy = dir.y;
 	// Convert Cartesian position to polar coordinates
 	r = std::sqrt(x * x + y * y);
 	phi = std::atan2(y, x);
@@ -41,7 +44,7 @@ SimulationModule::Ray::Ray(float x, float y, float vx, float vy, RayScenario sce
 	// Acceleration at the start position; verletStep keeps it up to date
 	a_r = radialAcceleration(r, L);
 
-	trail.emplace_back(x, y);
+	trail.push_back({pos, birthStep, 0.f});
 
 	// Store initial velocity direction (NOT position angle!)
 	prevVelocityAngle = initialVelocityAngle = std::atan2(vy, vx);
@@ -57,19 +60,23 @@ bool SimulationModule::Ray::hasEscaped(float maxDistance) const {
 	return r > maxDistance;
 }
 
-void SimulationModule::Ray::recordPosition() {
-	const auto x = r * std::cos(phi);
-	const auto y = r * std::sin(phi);
-	trail.emplace_back(x, y);
+bool SimulationModule::Ray::isFinished(float maxDistance) const {
+	return isCaptured() || hasEscaped(maxDistance);
 }
 
-void SimulationModule::Ray::integrate(float dlambda, float maxDistance, int currentFrame) {
-	if (!isActive(currentFrame) || isCaptured() || hasEscaped(maxDistance)) {
+void SimulationModule::Ray::integrate(float dlambda, float maxDistance, int step) {
+	if (isFinished(maxDistance)) {
 		return;
 	}
 	PhysicsModule::verletStep(*this, dlambda);
-	recordPosition();
 	updateDeflection();
+	trail.push_back({{r * std::cos(phi), r * std::sin(phi)}, step, deflection});
+}
+
+void SimulationModule::Ray::trimTrail(int currentStep, int fadeSteps) {
+	while (!trail.empty() && trail.front().step < currentStep - fadeSteps) {
+		trail.pop_front();
+	}
 }
 
 void SimulationModule::Ray::updateDeflection() {
@@ -92,8 +99,4 @@ void SimulationModule::Ray::updateDeflection() {
 	totalTurn += delta; // signed, accumulates full loops
 	prevVelocityAngle = currentVelocityAngle;
 	deflection = std::abs(totalTurn);
-}
-
-bool SimulationModule::Ray::isActive(int currentFrame) const {
-	return currentFrame >= startFrame;
 }

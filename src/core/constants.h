@@ -11,26 +11,7 @@ namespace PhysicsModule {
 #define M_PI 3.14159265358979323846
 #endif
 	constexpr float kPi = M_PI;
+
+	constexpr float kEventHorizonRadius = kRs;
+	constexpr float kPhotonSphereRadius = 1.5f * kRs;
 } // namespace PhysicsModule
-
-namespace SimulationModule {
-	// Half-extents of the simulated world, in units of rs.
-	// The world spans [-kWorldHalfWidth, kWorldHalfWidth] x [-kWorldHalfHeight, kWorldHalfHeight].
-	constexpr float kWorldHalfWidth = 8.f;
-	constexpr float kWorldHalfHeight = 6.f;
-
-	// Rays farther than this from the black hole are considered escaped
-	constexpr float kMaxDistance = 2.0f * kWorldHalfWidth;
-
-	// Affine parameter step of the integrator per simulation update
-	constexpr float kDLambda = 0.05f;
-} // namespace SimulationModule
-
-namespace RenderModule {
-	constexpr int kDefaultWidth = 800;
-	constexpr int kDefaultHeight = 600;
-} // namespace RenderModule
-
-namespace ViewModule {
-	constexpr int kNumStars = 200;
-} // namespace ViewModule

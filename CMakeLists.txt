@@ -101,6 +101,8 @@ add_executable(tests
 		tests/core/test_emitter.cpp
 		tests/core/test_fixed_step_clock.cpp
 		tests/core/test_physics.cpp
+		tests/core/test_ray.cpp
+		tests/core/test_simulation.cpp
 		tests/toml/test_toml_schema.cpp
 		tests/config/test_data_paths.cpp
 		tests/config/test_settings.cpp

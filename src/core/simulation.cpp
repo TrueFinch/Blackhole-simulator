@@ -4,97 +4,159 @@
 
 #include "core/simulation.h"
 
-#include <cmath>
+#include <algorithm>
+#include <limits>
+#include <utility>
 
-namespace {
-	// Frame at which each scenario starts
-	constexpr int kOrbitingStartFrame = 0;
-	constexpr int kPointSourceStartFrame = 180;
-	constexpr int kParallelStartFrame = 360;
+#include "core/emitter.h"
 
-	// Point source in the top-left corner, far left for dramatic lensing
-	constexpr float kSourceX = -0.95f * SimulationModule::kWorldHalfWidth; // 95% left
-	constexpr float kSourceY = 0.85f * SimulationModule::kWorldHalfHeight; // 85% up
-} // namespace
-
-SimulationModule::Simulation::Simulation() {
-	spawnOrbitingRay();
-	spawnPointSourceRays();
-	spawnParallelRays();
+SimulationModule::Simulation::Simulation(SceneModule::SceneDescription scene, SceneModule::StyleMap sharedStyles,
+                                         SceneModule::Settings settings)
+	: m_scene(std::move(scene)), m_sharedStyles(std::move(sharedStyles)), m_settings(std::move(settings)) {
+	updateFadeSteps();
+	resetSchedule();
 }
 
-void SimulationModule::Simulation::update() {
-	for (auto& ray: m_rays) {
-		ray.integrate(kDLambda, kMaxDistance, m_frame);
+void SimulationModule::Simulation::step() {
+	m_rayLimitHit = false;
+
+	for (const SceneModule::EmitterDesc& emitter: m_scene.emitters) {
+		std::optional<int>& next = m_nextFireStep[emitter.id];
+		if (next && *next <= m_stepIndex) {
+			// A skipped volley (ray limit) still moves the schedule on
+			fire(emitter);
+			const std::optional<int> period = periodSteps(emitter, m_settings.simulation.stepsPerSecond);
+			next = period ? std::optional{m_stepIndex + *period} : std::nullopt;
+		}
 	}
-	++m_frame;
+
+	const float maxDistance = m_settings.world.maxDistance;
+	for (Ray& ray: m_rays) {
+		ray.integrate(m_settings.simulation.dlambda, maxDistance, m_stepIndex);
+		if (const std::optional<int> fade = fadeStepsOf(ray.emitterId)) {
+			ray.trimTrail(m_stepIndex, *fade);
+		}
+	}
+	// A finished ray is gone once its trail has faded away; without fade the trail stays forever
+	std::erase_if(m_rays, [&](const Ray& ray) { return ray.isFinished(maxDistance) && ray.trail.empty(); });
+
+	++m_stepIndex;
 }
 
-glm::vec2 SimulationModule::Simulation::pointSourcePosition() {
-	return {kSourceX, kSourceY};
+void SimulationModule::Simulation::restart() {
+	m_rays.clear();
+	m_stepIndex = 0;
+	m_rayLimitHit = false;
+	resetSchedule();
 }
 
-bool SimulationModule::Simulation::isPointSourceActive() const {
-	return m_frame >= kPointSourceStartFrame;
+void SimulationModule::Simulation::clearRays() {
+	m_rays.clear();
 }
 
-// SCENARIO 1: Special orbiting ray near photon sphere (1 ray)
-void SimulationModule::Simulation::spawnOrbitingRay() {
-	constexpr float orbitStartX = -0.9f * kWorldHalfWidth; // 90% left
-	// Start height just above the capture threshold. The critical impact parameter is
-	// b = L/E = 3√3/2 rs ≈ 2.598 rs; since the ray starts at a finite distance, E < 1 and
-	// b is slightly larger than the start height. The threshold is extremely sensitive
-	// (and depends on dλ and float precision): with dλ = 0.05 the ray is captured
-	// for y ≤ 2.5786 and escapes after ~2.4 turns for y = 2.5787.
-	constexpr float orbitStartY = 2.5787f * PhysicsModule::kRs;
-	constexpr float orbitVx = 1.f; // Horizontal toward black hole
-	constexpr float orbitVy = 0.f;
-	m_rays.emplace_back(orbitStartX, orbitStartY, orbitVx, orbitVy, RayScenario::ORBITING, kOrbitingStartFrame);
-}
-
-// SCENARIO 2: Point source from top-left corner (25 rays)
-void SimulationModule::Simulation::spawnPointSourceRays() {
-	constexpr int numPointRays = 25;
-	// Calculate direction from source to black hole
-	constexpr float toBlackHoleX = 0.f - kSourceX;
-	constexpr float toBlackHoleY = 0.f - kSourceY;
-	const float baseAngle{std::atan2(toBlackHoleY, toBlackHoleX)};
-
-	for (auto i = 0; i < numPointRays; ++i) {
-		// Spread rays in 60-degree cone around direction to black hole
-		constexpr float coneSpread = PhysicsModule::kPi / 3.f; // 60 degrees total (π/3 radians)
-		const float angleOffset = -coneSpread / 2.f + coneSpread * static_cast<float>(i) / static_cast<float>(
-									numPointRays - 1);
-		const float angle = baseAngle + angleOffset;
-
-		// Calculate velocity components (all rays travel at speed c)
-		const float vx = std::cos(angle);
-		const float vy = std::sin(angle);
-
-		m_rays.emplace_back(kSourceX, kSourceY, vx, vy, RayScenario::POINT_SOURCE, kPointSourceStartFrame);
+void SimulationModule::Simulation::seek(int targetStep) {
+	restart();
+	for (int i = 0; i < targetStep; ++i) {
+		step();
 	}
 }
 
-// SCENARIO 3: Parallel rays from left (70 rays)
-void SimulationModule::Simulation::spawnParallelRays() {
-	constexpr int numParallelRays = 70;
-	// Left edge of the world. Must stay below kMaxDistance, otherwise
-	// the rays count as escaped right away and are never integrated.
-	constexpr float parallelStartX = -kWorldHalfWidth;
-	static_assert(
-		parallelStartX * parallelStartX + kWorldHalfHeight * kWorldHalfHeight < kMaxDistance * kMaxDistance,
-		"Parallel rays must start inside kMaxDistance");
-	constexpr float parallelVx = 1.f; // Horizontal, rightward
-	constexpr float parallelVy = 0.f; // No vertical component
+void SimulationModule::Simulation::setScene(SceneModule::SceneDescription scene, SceneModule::StyleMap sharedStyles) {
+	m_scene = std::move(scene);
+	m_sharedStyles = std::move(sharedStyles);
 
-	for (auto i = 0; i < numParallelRays; ++i) {
-		// Calculate interpolation parameter [0, 1]
-		const float t{static_cast<float>(i) / static_cast<float>(numParallelRays - 1)};
-
-		// Map to full world height: -kWorldHalfHeight to +kWorldHalfHeight
-		const float startY = -kWorldHalfHeight + t * 2.f * kWorldHalfHeight;
-
-		m_rays.emplace_back(parallelStartX, startY, parallelVx, parallelVy, RayScenario::PARALLEL,
-							kParallelStartFrame);
+	std::map<int, std::optional<int>> schedule;
+	for (const SceneModule::EmitterDesc& emitter: m_scene.emitters) {
+		if (auto it = m_nextFireStep.find(emitter.id); it != m_nextFireStep.end()) {
+			schedule[emitter.id] = it->second;
+		} else {
+			schedule[emitter.id] = std::max(startStep(emitter, m_settings.simulation.stepsPerSecond), m_stepIndex);
+		}
 	}
+	m_nextFireStep = std::move(schedule);
+
+	std::erase_if(m_rays, [&](const Ray& ray) { return !m_nextFireStep.contains(ray.emitterId); });
+	updateFadeSteps();
+}
+
+void SimulationModule::Simulation::setSettings(const SceneModule::Settings& settings) {
+	m_settings = settings;
+	updateFadeSteps();
+}
+
+SceneModule::Seconds SimulationModule::Simulation::time() const {
+	return SceneModule::Seconds(static_cast<float>(m_stepIndex)
+	                            / static_cast<float>(m_settings.simulation.stepsPerSecond));
+}
+
+const SceneModule::Style& SimulationModule::Simulation::styleOf(int emitterId) const {
+	const auto emitter = std::ranges::find(m_scene.emitters, emitterId, &SceneModule::EmitterDesc::id);
+	if (emitter == m_scene.emitters.end()) {
+		static const SceneModule::Style defaultStyle;
+		return defaultStyle;
+	}
+	return SceneModule::resolveStyle(emitter->style, m_scene.localStyles, m_sharedStyles);
+}
+
+void SimulationModule::Simulation::resetSchedule() {
+	m_nextFireStep.clear();
+	for (const SceneModule::EmitterDesc& emitter: m_scene.emitters) {
+		m_nextFireStep[emitter.id] = startStep(emitter, m_settings.simulation.stepsPerSecond);
+	}
+}
+
+void SimulationModule::Simulation::updateFadeSteps() {
+	m_fadeSteps.clear();
+	for (const SceneModule::EmitterDesc& emitter: m_scene.emitters) {
+		const std::optional<SceneModule::Seconds> fade = styleOf(emitter.id).fade;
+		// A fade shorter than a step still fades (after one step)
+		m_fadeSteps[emitter.id] = fade
+			                          ? std::optional{std::max(1, toSteps(*fade, m_settings.simulation.stepsPerSecond))}
+			                          : std::nullopt;
+	}
+}
+
+std::optional<int> SimulationModule::Simulation::fadeStepsOf(int emitterId) const {
+	const auto it = m_fadeSteps.find(emitterId);
+	return it != m_fadeSteps.end() ? it->second : std::nullopt;
+}
+
+void SimulationModule::Simulation::fire(const SceneModule::EmitterDesc& emitter) {
+	const std::vector<RaySpawn> spawns = volley(emitter);
+	if (!makeRoom(static_cast<int>(spawns.size()))) {
+		m_rayLimitHit = true;
+		return;
+	}
+	for (const RaySpawn& spawn: spawns) {
+		m_rays.emplace_back(spawn.pos, spawn.dir, emitter.id, m_stepIndex);
+	}
+}
+
+bool SimulationModule::Simulation::makeRoom(int incoming) {
+	const auto maxRays = static_cast<std::size_t>(std::max(m_settings.simulation.maxRays, 0));
+	const auto needed = static_cast<std::size_t>(incoming);
+	if (m_rays.size() + needed <= maxRays) {
+		return true;
+	}
+	const float maxDistance = m_settings.world.maxDistance;
+	// Finished rays, oldest first: an empty trail counts as the oldest
+	std::vector<std::pair<int, std::size_t>> finished; // (oldest trail step, ray index)
+	for (std::size_t i = 0; i < m_rays.size(); ++i) {
+		if (m_rays[i].isFinished(maxDistance)) {
+			const int oldest = m_rays[i].trail.empty() ? std::numeric_limits<int>::min() : m_rays[i].trail.front().step;
+			finished.emplace_back(oldest, i);
+		}
+	}
+	if (m_rays.size() - finished.size() + needed > maxRays) {
+		return false;
+	}
+	const std::size_t evictCount = m_rays.size() + needed - maxRays;
+	std::ranges::sort(finished);
+	std::vector<bool> evicted(m_rays.size(), false);
+	for (std::size_t k = 0; k < evictCount; ++k) {
+		evicted[finished[k].second] = true;
+	}
+	std::size_t index = 0;
+	std::erase_if(m_rays, [&](const Ray&) { return evicted[index++]; });
+	return true;
 }

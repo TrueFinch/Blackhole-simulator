@@ -6,12 +6,12 @@
 
 #include <vector>
 
-#include "../render/render.h"
+#include "core/settings.h"
+#include "render/render.h"
 #include "view/starfield.h"
 
 namespace SimulationModule {
 	class Simulation;
-	struct Ray;
 }
 
 namespace ViewModule {
@@ -20,7 +20,7 @@ namespace ViewModule {
 	// Reads the simulation state, never changes it.
 	class SceneRenderer {
 	public:
-		SceneRenderer(int starsCount, float halfWidth, float halfHeight);
+		SceneRenderer(int starsCount, const SceneModule::WorldSettings& world);
 
 		void draw(RenderModule::RenderEngine& engine, const SimulationModule::Simulation& simulation, float time);
 
@@ -28,11 +28,13 @@ namespace ViewModule {
 		Starfield m_starfield;
 		// Reused every frame to avoid reallocations
 		std::vector<RenderModule::ColoredPoint> m_rayHeads;
+		std::vector<RenderModule::ColoredPoint> m_markers;
+		std::vector<glm::vec2> m_trailPositions;
 
 		static void drawBlackHole(RenderModule::RenderEngine& engine);
 
-		static void drawPointSource(RenderModule::RenderEngine& engine, const SimulationModule::Simulation& simulation);
-
 		void drawRays(RenderModule::RenderEngine& engine, const SimulationModule::Simulation& simulation);
+
+		void drawMarkers(RenderModule::RenderEngine& engine, const SimulationModule::Simulation& simulation);
 	};
 } // namespace ViewModule

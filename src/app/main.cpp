@@ -4,30 +4,73 @@
 
 #include <exception>
 #include <iostream>
+#include <utility>
 
-#include "core/constants.h"
-#include "render/render.h"
-#include "view/scene_renderer.h"
+#include "config/data_paths.h"
+#include "config/settings_io.h"
+#include "core/fixed_step_clock.h"
 #include "core/simulation.h"
+#include "render/render.h"
+#include "scene/scene_io.h"
+#include "view/scene_renderer.h"
 
-int main() {
+namespace {
+	// Problems with the data files are reported and the defaults used, so the window still opens.
+
+	SceneModule::Settings loadSettingsOrDefault(const SceneModule::DataPaths& paths) {
+		auto settings = SceneModule::loadSettings(paths.settings());
+		if (!settings) {
+			std::cerr << SceneModule::formatError(settings.error()) << '\n';
+			return {};
+		}
+		return std::move(*settings);
+	}
+
+	SceneModule::StyleMap loadStylesOrEmpty(const SceneModule::DataPaths& paths) {
+		auto styles = SceneModule::loadStyles(paths.styles());
+		if (!styles) {
+			std::cerr << SceneModule::formatError(styles.error()) << '\n';
+			return {};
+		}
+		return std::move(*styles);
+	}
+
+	SceneModule::SceneDescription loadSceneOrEmpty(const SceneModule::DataPaths& paths,
+	                                               const SceneModule::Settings& settings) {
+		auto loaded = SceneModule::loadScene(paths.scenario(settings.view.defaultScenario), settings.world);
+		if (!loaded) {
+			std::cerr << SceneModule::formatError(loaded.error()) << '\n';
+			return {};
+		}
+		return std::move(loaded->scene);
+	}
+} // namespace
+
+int main(int argc, char** argv) {
 	using namespace RenderModule;
 	using namespace SimulationModule;
 	using namespace ViewModule;
-	using SimulationModule::kWorldHalfWidth;
-	using SimulationModule::kWorldHalfHeight;
 
 	try {
-		RenderEngine engine(kDefaultWidth, kDefaultHeight,
-										"2D Black Hole Simulator");
-		Simulation simulation;
-		SceneRenderer sceneRenderer(kNumStars, kWorldHalfWidth, kWorldHalfHeight);
+		const SceneModule::DataPaths paths = SceneModule::dataPathsFromArgs(argc, argv);
+		const SceneModule::Settings settings = loadSettingsOrDefault(paths);
+		Simulation simulation(loadSceneOrEmpty(paths, settings), loadStylesOrEmpty(paths), settings);
+		FixedStepClock clock(settings.simulation.stepsPerSecond);
 
+		RenderEngine engine(settings.window.width, settings.window.height, "2D Black Hole Simulator");
+		SceneRenderer sceneRenderer(settings.view.stars, settings.world);
+
+		float previousTime = RenderEngine::time();
 		while (!engine.shouldClose()) {
-			simulation.update();
+			const float now = RenderEngine::time();
+			const double frameSeconds = now - previousTime;
+			previousTime = now;
+			for (int i = clock.advance(frameSeconds); i > 0; --i) {
+				simulation.step();
+			}
 
-			engine.beginFrame(kWorldHalfWidth, kWorldHalfHeight);
-			sceneRenderer.draw(engine, simulation, RenderEngine::time());
+			engine.beginFrame(settings.world.halfWidth, settings.world.halfHeight);
+			sceneRenderer.draw(engine, simulation, now);
 			engine.endFrame();
 		}
 	} catch (const std::exception& e) {
