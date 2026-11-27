@@ -14,7 +14,7 @@ namespace UiModule {
 	// Per frame: beginFrame(), widgets, endFrame() (renders the draw data, call before swapping buffers).
 	class ImGuiLayer {
 	public:
-		// Loads the font with Cyrillic glyphs; falls back to the default font if the file is missing
+		// Loads the font with Cyrillic glyphs and arrows; falls back to the default font if the file is missing
 		ImGuiLayer(GLFWwindow* window, const std::filesystem::path& fontPath);
 
 		ImGuiLayer(const ImGuiLayer&) = delete;

@@ -17,6 +17,7 @@ PACKAGES=(
     libglfw3-dev      # GLFW: windows and input
     libglew-dev       # GLEW: OpenGL function loader
     libglm-dev        # GLM: vector and matrix math
+    fonts-dejavu-core # DejaVu Sans: UI font with Cyrillic and arrows
 )
 
 $SUDO apt-get update

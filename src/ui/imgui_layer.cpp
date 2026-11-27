@@ -12,6 +12,19 @@
 
 namespace {
 	constexpr float kFontSize = 16.f;
+
+	// Latin and Cyrillic as in GetGlyphRangesCyrillic(), plus the arrows used in the control panel.
+	// ImGui keeps the pointer until the font atlas is built, so the array is static.
+	constexpr ImWchar kGlyphRanges[] = {
+		0x0020, 0x00FF, // Basic Latin + Latin-1 Supplement
+		0x0400, 0x052F, // Cyrillic + Cyrillic Supplement
+		0x2190, 0x2193, // ← ↑ → ↓
+		0x25B6, 0x25B6, // ▶
+		0x25C0, 0x25C0, // ◀
+		0x2DE0, 0x2DFF, // Cyrillic Extended-A
+		0xA640, 0xA69F, // Cyrillic Extended-B
+		0,
+	};
 } // namespace
 
 UiModule::ImGuiLayer::ImGuiLayer(GLFWwindow* window, const std::filesystem::path& fontPath) {
@@ -24,7 +37,7 @@ UiModule::ImGuiLayer::ImGuiLayer(GLFWwindow* window, const std::filesystem::path
 	std::error_code ec;
 	if (std::filesystem::exists(fontPath, ec)) {
 		if (io.Fonts->AddFontFromFileTTF(fontPath.string().c_str(), kFontSize, nullptr,
-										io.Fonts->GetGlyphRangesCyrillic()) == nullptr) {
+										kGlyphRanges) == nullptr) {
 			std::cerr << "Failed to load the UI font: " << fontPath.string() << ", using the default font\n";
 			io.Fonts->AddFontDefault();
 		}

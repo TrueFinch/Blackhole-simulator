@@ -130,9 +130,10 @@ add_executable(blackhole_simulator
 		src/ui/hotkeys.h
 )
 target_link_libraries(blackhole_simulator PRIVATE blackhole_core blackhole_io blackhole_view blackhole_app imgui ${DEPS})
-# The font stays in the imgui sources, it is not copied into the repository.
-target_compile_definitions(blackhole_simulator PRIVATE
-		BLACKHOLE_FONT_PATH="${imgui_SOURCE_DIR}/misc/fonts/Roboto-Medium.ttf")
+# System font from the fonts-dejavu-core package (see prepare.sh), it is not copied into the repository.
+# DejaVu Sans has the Cyrillic and the arrow glyphs that the imgui fonts lack.
+set(BLACKHOLE_FONT_PATH "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf" CACHE FILEPATH "UI font (TTF)")
+target_compile_definitions(blackhole_simulator PRIVATE BLACKHOLE_FONT_PATH="${BLACKHOLE_FONT_PATH}")
 
 # Accuracy and performance comparison of the ray integrators (no OpenGL needed).
 # Build it in Release for meaningful timings.
