@@ -11,6 +11,7 @@ trail_from = "#80ff00"
 trail_to = "#ffff00"
 head = "#80ff00"
 width = 1.5
+fade = "3s"
 
 [styles.lime_fading]
 trail_from = "#80ff00"
@@ -24,9 +25,11 @@ trail_from = "#ff33ff"
 trail_to = "#ff33ff"
 head = "#ff33ff"
 width = 1.5
+fade = "3s"
 
 [styles.rainbow]
 trail_from = "#0080ff"
 trail_to = "#ff0000"
 head = "#ffff00"
 width = 1.5
+fade = "3s"
