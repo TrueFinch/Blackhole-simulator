@@ -19,19 +19,8 @@ namespace SceneModule {
 	// Simulation time. Fractional: scene files have values like 0.5.
 	using Seconds = std::chrono::duration<float>;
 
-	struct Style {
-		glm::vec3 trailFrom{1.f};
-		glm::vec3 trailTo{1.f};
-		glm::vec3 head{1.f};
-		float width = 1.5f;
-		std::optional<Seconds> fade; // until a trail point vanishes; absent = never
-		bool operator==(const Style &) const = default;
-	};
-
-	using StyleMap = std::map<std::string, Style>;
-
 	// White style without fade, used for unknown style names.
-	inline const std::string kDefaultStyleName = "default";
+	inline constexpr std::string kDefaultStyleName = "default";
 
 	// Rays start from `pos` and spread over a sector of `spread` radians.
 	struct ConeShape {
@@ -75,6 +64,21 @@ namespace SceneModule {
 		glm::vec3 color{1.f};
 		bool operator==(const LabelDesc &) const = default;
 	};
+
+	struct Style {
+		glm::vec3 trailFrom{1.f};
+		glm::vec3 trailTo{1.f};
+		glm::vec3 head{1.f};
+		float width = 1.5f;
+		std::optional<Seconds> fade; // until a trail point vanishes; absent = never
+		bool operator==(const Style &) const = default;
+	};
+
+	using StyleMap = std::map<std::string, Style>;
+
+	// `local` overrides `shared`. An unknown name yields a default style (and a warning).
+	[[nodiscard]] const Style &resolveStyle(const std::string &name, const StyleMap &local, const StyleMap &shared,
+	                                        std::vector<std::string> *warnings = nullptr);
 
 	struct SceneDescription {
 		std::string name, description;

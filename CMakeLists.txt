@@ -21,10 +21,10 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(tomlplusplus)
 
 # src/ layout (includes are written relative to src/, e.g. "core/ray.h"):
-#   core/    physics, rays, simulation — depends only on glm
+#   core/    physics, rays, simulation, emitters; scene description and settings data — glm only
 #   toml/    generic TOML layer: IoError, helpers, field schemas
-#   config/  application settings (config/settings.toml)
-#   scene/   scene model, scenario and style files (scenarios/*.toml, config/styles.toml)
+#   config/  reading and writing config/settings.toml, where the data files live
+#   scene/   reading and writing scenario and style files (scenarios/*.toml, config/styles.toml)
 #   render/  OpenGL primitives
 #   view/    scene drawing: rays, black hole, starfield
 #   app/     entry point
@@ -36,13 +36,16 @@ add_library(blackhole_core STATIC
 		src/core/physics.h
 		src/core/ray.cpp
 		src/core/ray.h
+		src/core/scene_description.cpp
+		src/core/scene_description.h
+		src/core/settings.h
 		src/core/simulation.cpp
 		src/core/simulation.h
 )
 target_include_directories(blackhole_core PUBLIC src)
 target_link_libraries(blackhole_core PUBLIC glm::glm)
 
-# Data files: the TOML layer and the settings and scenes built on it. No OpenGL.
+# Data files: the TOML layer, reading and writing the settings and scenes of core. No OpenGL.
 add_library(blackhole_io STATIC
 		src/toml/io_error.cpp
 		src/toml/io_error.h
@@ -50,14 +53,13 @@ add_library(blackhole_io STATIC
 		src/toml/toml_schema.h
 		src/toml/toml_util.cpp
 		src/toml/toml_util.h
-		src/config/settings.cpp
-		src/config/settings.h
-		src/scene/scene.h
+		src/config/settings_io.cpp
+		src/config/settings_io.h
 		src/scene/scene_io.cpp
 		src/scene/scene_io.h
 )
 target_include_directories(blackhole_io PUBLIC src)
-target_link_libraries(blackhole_io PUBLIC glm::glm tomlplusplus::tomlplusplus)
+target_link_libraries(blackhole_io PUBLIC blackhole_core tomlplusplus::tomlplusplus)
 # toml++ turns off std::to_chars for floats on GCC/Clang (written for 2020 standard libraries) and
 # falls back to printing max_digits10 digits: 0.0125 becomes 0.012500000000000001. Our toolchains
 # have floating-point <charconv> (toTomlFloat already relies on it), so get the shortest form.

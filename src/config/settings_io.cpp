@@ -3,7 +3,7 @@
 // Co-Authored-By: Claude Opus 5.5
 //
 
-#include "config/settings.h"
+#include "config/settings_io.h"
 
 #include <cmath>
 

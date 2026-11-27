@@ -5,12 +5,9 @@
 
 #pragma once
 
-#include <expected>
-#include <filesystem>
-#include <string>
-#include <vector>
+// Application settings (config/settings.toml); loading and saving is in config/settings_io.h.
 
-#include "toml/io_error.h"
+#include <string>
 
 namespace SceneModule {
 	struct WindowSettings {
@@ -51,12 +48,4 @@ namespace SceneModule {
 
 		bool operator==(const Settings&) const = default;
 	};
-
-	// Missing keys keep their defaults. Unknown keys are not an error: they are reported in
-	// `warnings` (formatted with formatError) if it is given.
-	[[nodiscard]] std::expected<Settings, IoError>
-	loadSettings(const std::filesystem::path& path, std::vector<std::string>* warnings = nullptr);
-
-	[[nodiscard]] std::expected<void, IoError>
-	saveSettings(const Settings& settings, const std::filesystem::path& path);
 }

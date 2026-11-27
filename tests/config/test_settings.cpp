@@ -11,7 +11,7 @@
 #include <fstream>
 #include <sstream>
 
-#include "config/settings.h"
+#include "config/settings_io.h"
 #include "toml/toml_util.h"
 
 using namespace SceneModule;

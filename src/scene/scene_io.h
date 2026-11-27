@@ -10,8 +10,8 @@
 #include <string>
 #include <vector>
 
-#include "config/settings.h"
-#include "scene/scene.h"
+#include "core/settings.h"
+#include "core/scene_description.h"
 #include "toml/io_error.h"
 
 namespace SceneModule {
@@ -34,11 +34,4 @@ namespace SceneModule {
 
 	[[nodiscard]] std::expected<void, IoError>
 	saveStyles(const StyleMap& styles, const std::filesystem::path& path);
-
-	// `local` overrides `shared`. An unknown name yields a default style (and a warning).
-	[[nodiscard]] const Style& resolveStyle(
-		const std::string& name,
-		const StyleMap& local,
-		const StyleMap& shared,
-		std::vector<std::string>* warnings = nullptr);
 }
