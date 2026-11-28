@@ -13,13 +13,6 @@ head = "#80ff00"
 width = 1.5
 fade = "3s"
 
-[styles.lime_fading]
-trail_from = "#80ff00"
-trail_to = "#ffff00"
-head = "#80ff00"
-width = 1.5
-fade = "3s"
-
 [styles.magenta]
 trail_from = "#ff33ff"
 trail_to = "#ff33ff"

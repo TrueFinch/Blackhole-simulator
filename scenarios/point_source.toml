@@ -9,4 +9,4 @@ spread = 1.0471976      # fan width, rad (60 degrees)
 rays = 25
 start = "0s"
 cooldown = "1.5s"       # between volleys ("500ms" also works); remove the line for a single volley
-style = "lime_fading"
+style = "lime"

@@ -1,16 +1,23 @@
 name = "Star and observer"
 description = "Light from a star bends around the black hole and reaches the observer"
 
+[styles.rainbow_fading]
+trail_from = "#0080ff"
+trail_to = "#ff0000"
+head = "#ffff00"
+width = 1.5
+fade = "1s"
+
 # Labels are plain text drawn at a point of the scene; the file is UTF-8.
 [[emitter]]
 type = "cone"
 pos = [-7, 3]
 aim = [0, 0]
-spread = 0.6
-rays = 15
+spread = 0.8
+rays = 20
 start = "0s"
 cooldown = "1s"
-style = "lime_fading"
+style = "rainbow_fading"
 
 [[label]]
 pos = [-7, 3]
